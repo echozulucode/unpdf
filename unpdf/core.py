@@ -96,18 +96,38 @@ def convert_pdf(
         logger.warning(f"No text extracted from {pdf_path}")
         markdown = ""
     else:
-        # TODO: Phase 3 - Implement processing (headings, lists, etc.)
-        # from unpdf.processors.headings import HeadingProcessor
-        # processor = HeadingProcessor(avg_font_size=12, heading_ratio=heading_font_ratio)
-        # elements = [processor.process(span) for span in spans]
+        # Phase 3: Process spans into structured elements
+        from unpdf.extractors.text import calculate_average_font_size
+        from unpdf.processors.headings import HeadingProcessor
+        from unpdf.processors.lists import ListProcessor
 
-        # Phase 2: Basic rendering with inline formatting
-        from unpdf.renderers.markdown import render_spans_to_markdown
+        avg_font_size = calculate_average_font_size(spans)
+        heading_processor = HeadingProcessor(
+            avg_font_size=avg_font_size, heading_ratio=heading_font_ratio
+        )
+        list_processor = ListProcessor()
 
-        markdown = render_spans_to_markdown(spans)
+        elements = []
+        for span in spans:
+            # Try list detection first (more specific)
+            list_result = list_processor.process(span)
+
+            # If not a list, try heading detection
+            if list_result.__class__.__name__ == "ParagraphElement":
+                element = heading_processor.process(span)
+            else:
+                element = list_result  # type: ignore[assignment]
+
+            elements.append(element)
+
+        # Phase 3: Render elements to Markdown
+        from unpdf.renderers.markdown import render_elements_to_markdown
+
+        markdown = render_elements_to_markdown(elements)
 
         logger.info(
-            f"Converted {len(spans)} text span(s) to {len(markdown)} character(s)"
+            f"Converted {len(spans)} span(s) to {len(elements)} element(s), "
+            f"{len(markdown)} character(s)"
         )
 
     # Write to file if output path provided

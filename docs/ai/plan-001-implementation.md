@@ -152,34 +152,44 @@ Building a Python package (MIT-licensed) that converts PDF files to Markdown for
 
 ---
 
-## Phase 3: Structural Elements (Week 3)
+## Phase 3: Structural Elements (Week 3) ✅ COMPLETE
 
-### 3.1 Heading Detection
-- [ ] Implement font-size based heading detection
-- [ ] Compare text span font size to document average
-- [ ] Map heading levels to Markdown (#, ##, ###)
-- [ ] Handle title and section headers
+**Status:** ✅ Complete (2025-11-02)  
+**Completion Report:** [phase-3-completion.md](phase-3-completion.md)
 
-### 3.2 List Detection
-- [ ] Detect bullet characters (•, –, -, etc.)
-- [ ] Convert to Markdown unordered lists (`- Item`)
-- [ ] Detect numbered lists and convert to `1. Item`
-- [ ] Handle nested lists with proper indentation
-- [ ] Preserve list hierarchy
+### 3.1 Heading Detection ✅
+- [x] Implement font-size based heading detection
+- [x] Compare text span font size to document average
+- [x] Map heading levels to Markdown (#, ##, ###)
+- [x] Handle title and section headers
+- [x] Bold text priority in level assignment
 
-### 3.3 Blockquotes
-- [ ] Detect quoted paragraphs (quote marks, large indent)
+### 3.2 List Detection ✅
+- [x] Detect bullet characters (•, –, -, ●, ○, ▪, etc.)
+- [x] Convert to Markdown unordered lists (`- Item`)
+- [x] Detect numbered lists (1., a), i., etc.)
+- [x] Convert to Markdown ordered lists (`1. Item`)
+- [x] Handle nested lists with proper indentation (up to 5 levels)
+- [x] Preserve list hierarchy based on x-coordinates
+
+### 3.3 Blockquotes ⏭️
+- [ ] Detect quoted paragraphs (deferred to Phase 4)
 - [ ] Prepend `>` to blockquote lines
 - [ ] Handle nested blockquotes
 
-### 3.4 Testing
-- [ ] Test heading detection with various font sizes
-- [ ] Test bullet list conversion
-- [ ] Test numbered list conversion
-- [ ] Test nested lists
-- [ ] Test blockquotes
+### 3.4 Testing ✅
+- [x] Test heading detection with various font sizes (9 tests)
+- [x] Test bullet list conversion (12 tests)
+- [x] Test numbered list conversion (included)
+- [x] Test nested lists (indent levels)
+- [ ] Test blockquotes (deferred to Phase 4)
 
-**Deliverable:** Converter handles headings, lists, and blockquotes
+**Deliverable:** ✅ Converter handles headings and lists
+- Heading processor: `unpdf/processors/headings.py` ✅
+- List processor: `unpdf/processors/lists.py` ✅
+- Element-based architecture ✅
+- Tests: 46 passing (4 skipped) ✅
+- Coverage: 62% (+10% from Phase 2) ✅
 
 ---
 

@@ -17,6 +17,58 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def render_elements_to_markdown(elements: list[Any]) -> str:
+    """Render document elements to Markdown format.
+
+    Converts structured elements (headings, lists, paragraphs) to Markdown.
+
+    Args:
+        elements: List of Element objects (HeadingElement, ListItemElement, etc.).
+
+    Returns:
+        Formatted Markdown string.
+
+    Example:
+        >>> from unpdf.processors.headings import HeadingElement, ParagraphElement
+        >>> elements = [
+        ...     HeadingElement("Title", level=1),
+        ...     ParagraphElement("Text here")
+        ... ]
+        >>> print(render_elements_to_markdown(elements))
+        # Title
+        <BLANKLINE>
+        Text here
+    """
+    if not elements:
+        return ""
+
+    markdown_parts: list[str] = []
+
+    for element in elements:
+        # Get markdown representation from element
+        md_text = element.to_markdown()
+
+        # Add spacing around headings
+        if element.__class__.__name__ == "HeadingElement":
+            # Blank line before heading (except first element)
+            if markdown_parts:
+                markdown_parts.append("")
+            markdown_parts.append(md_text)
+            # Blank line after heading
+            markdown_parts.append("")
+        else:
+            markdown_parts.append(md_text)
+
+    # Join with newlines
+    result = "\n".join(markdown_parts)
+
+    # Clean up multiple consecutive blank lines
+    while "\n\n\n" in result:
+        result = result.replace("\n\n\n", "\n\n")
+
+    return result.strip()
+
+
 def render_spans_to_markdown(spans: list[dict[str, Any]]) -> str:
     """Render text spans with metadata to Markdown format.
 
