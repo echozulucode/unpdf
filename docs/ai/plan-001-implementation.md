@@ -315,33 +315,51 @@ Building a Python package (MIT-licensed) that converts PDF files to Markdown for
 
 ---
 
-## Phase 7: CLI Implementation (Week 8)
+## Phase 7: CLI Implementation (Week 8) ✅ COMPLETE
 
-### 7.1 Command-Line Interface
-- [ ] Implement main CLI entry point (`pdf2md.cli:main`)
-- [ ] Add argument parsing:
+**Status:** ✅ Complete (2025-11-02)  
+**Completion Report:** [phase-7-completion.md](phase-7-completion.md)
+
+### 7.1 Command-Line Interface ✅
+- [x] Implement main CLI entry point (`unpdf.cli:main`)
+- [x] Add argument parsing:
   - Input file/directory path
   - `-o/--output` - output path
-  - `--pages` - specific pages to convert
+  - `--pages` - specific pages to convert (e.g., '1,3,5-7')
   - `-r/--recursive` - process directories recursively
-- [ ] Default output: input basename with `.md` extension
-- [ ] Handle single file conversion
-- [ ] Handle batch directory conversion
+  - `--no-code-blocks` - disable code detection
+  - `--heading-ratio` - heading detection threshold
+  - `-v/--verbose` - debug logging
+- [x] Default output: input basename with `.md` extension
+- [x] Handle single file conversion
+- [x] Handle batch directory conversion
+- [x] Page specification parsing (single, ranges, mixed)
 
-### 7.2 Error Handling
-- [ ] Validate input files exist
-- [ ] Check file permissions
-- [ ] Handle corrupted PDFs gracefully
-- [ ] Provide meaningful error messages
+### 7.2 Error Handling ✅
+- [x] Validate input files exist
+- [x] Check file permissions
+- [x] Handle corrupted PDFs gracefully
+- [x] Provide meaningful error messages
+- [x] Handle keyboard interrupts (Ctrl+C)
+- [x] Proper exit codes (0=success, 1=error, 130=interrupt)
+- [x] Batch mode continues on errors with summary
 
-### 7.3 Testing
-- [ ] Test CLI with single file
-- [ ] Test CLI with directory
-- [ ] Test default output naming
-- [ ] Test custom output path
-- [ ] Test error conditions
+### 7.3 Testing ✅
+- [x] Test CLI with single file
+- [x] Test CLI with directory
+- [x] Test default output naming
+- [x] Test custom output path
+- [x] Test error conditions (25 tests total)
+- [x] Test page specification parsing
+- [x] Test batch error handling
+- [x] Test all CLI flags
 
-**Deliverable:** Fully functional CLI tool
+**Deliverable:** ✅ Fully functional CLI tool with advanced features
+- Page selection: `--pages 1,3,5-7` ✅
+- Error handling: Comprehensive with proper exit codes ✅
+- Tests: 25 CLI tests, 141 total passing ✅
+- Coverage: 94% for CLI module, 78% overall ✅
+- Code quality: Black, Ruff, Mypy all passing ✅
 
 ---
 

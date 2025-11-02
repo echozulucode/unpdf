@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_text_with_metadata(
-    pdf_path: Path, pages: list[int] | None = None
+    pdf_path: Path, page_numbers: list[int] | None = None
 ) -> list[dict[str, Any]]:
     """Extract text spans with font metadata from PDF.
 
@@ -34,7 +34,7 @@ def extract_text_with_metadata(
 
     Args:
         pdf_path: Path to the PDF file to process.
-        pages: Optional list of specific page numbers (1-indexed) to process.
+        page_numbers: Optional list of specific page numbers (1-indexed) to process.
             If None, processes all pages.
 
     Returns:
@@ -79,10 +79,10 @@ def extract_text_with_metadata(
     try:
         with pdfplumber.open(pdf_path) as pdf:
             # Determine which pages to process
-            if pages:
-                page_numbers = [p - 1 for p in pages]  # Convert to 0-indexed
+            if page_numbers:
+                page_indices = [p - 1 for p in page_numbers]  # Convert to 0-indexed
                 pages_to_process = [
-                    pdf.pages[i] for i in page_numbers if i < len(pdf.pages)
+                    pdf.pages[i] for i in page_indices if i < len(pdf.pages)
                 ]
             else:
                 pages_to_process = pdf.pages

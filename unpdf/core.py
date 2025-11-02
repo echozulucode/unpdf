@@ -27,6 +27,7 @@ def convert_pdf(
     detect_code_blocks: bool = True,
     extract_tables: bool = True,
     heading_font_ratio: float = 1.3,
+    page_numbers: list[int] | None = None,
 ) -> str:
     """Convert PDF file to Markdown.
 
@@ -44,6 +45,8 @@ def convert_pdf(
         heading_font_ratio: Font size multiplier for heading detection.
             Text with font_size > avg_font_size * ratio is treated as heading.
             Default: 1.3 (30% larger than average).
+        page_numbers: Optional list of specific page numbers to convert (1-indexed).
+            If None, converts all pages. Default: None.
 
     Returns:
         Markdown content as string.
@@ -93,7 +96,7 @@ def convert_pdf(
     # Phase 2: Extract text with metadata and tables
     from unpdf.extractors.text import extract_text_with_metadata
 
-    spans = extract_text_with_metadata(pdf_path)
+    spans = extract_text_with_metadata(pdf_path, page_numbers=page_numbers)
 
     # Extract tables if enabled
     table_elements = []
@@ -106,7 +109,12 @@ def convert_pdf(
             table_processor = TableProcessor()
 
             with pdfplumber.open(pdf_path) as pdf:
-                for page in pdf.pages:
+                pages_to_process = (
+                    [pdf.pages[i - 1] for i in page_numbers if i <= len(pdf.pages)]
+                    if page_numbers
+                    else pdf.pages
+                )
+                for page in pages_to_process:
                     page_tables = table_processor.extract_tables(page)
                     table_elements.extend(page_tables)
 
