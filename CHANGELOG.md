@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial project structure
 - MIT license
 - Development guidelines (AGENTS.md)
-- Implementation plan
+- Implementation plan (docs/ai/plan-001-implementation.md)
 - GitHub Actions CI/CD pipeline
 - Copilot CLI configuration
 

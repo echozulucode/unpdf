@@ -216,7 +216,9 @@ Contributions welcome! See [AGENTS.md](AGENTS.md) for development guidelines.
 
 ## Roadmap
 
-### v1.0 (Current)
+See [docs/ai/plan-001-implementation.md](docs/ai/plan-001-implementation.md) for detailed 11-week implementation plan.
+
+### v1.0 (Current - Weeks 1-11)
 - ✅ Basic text extraction
 - ✅ Font style detection
 - ✅ Heading detection

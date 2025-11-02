@@ -237,7 +237,9 @@ refactor: simplify heading detection logic
 
 ## Architecture Principles
 
-See [AGENTS.md](AGENTS.md) for detailed guidelines. Key points:
+See [AGENTS.md](AGENTS.md) for detailed guidelines and [docs/ai/plan-001-implementation.md](docs/ai/plan-001-implementation.md) for the implementation roadmap.
+
+Key points:
 
 1. **Simplicity over completeness** - Solve 80% well
 2. **Transparency over magic** - Rule-based, not ML

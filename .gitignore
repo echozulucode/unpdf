@@ -60,6 +60,6 @@ Thumbs.db
 !CHANGELOG.md
 !CONTRIBUTING.md
 !AGENTS.md
-!IMPLEMENTATION_PLAN.md
+!docs/**/*.md
 output/
 temp/
