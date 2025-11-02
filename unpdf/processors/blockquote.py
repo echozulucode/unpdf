@@ -1,0 +1,168 @@
+"""Blockquote detection processor for unpdf.
+
+This module detects blockquotes based on indentation and quote characters.
+
+Example:
+    >>> from unpdf.processors.blockquote import BlockquoteProcessor
+    >>> processor = BlockquoteProcessor()
+    >>> span = {"text": "Quote text", "x0": 120}
+    >>> result = processor.process(span)
+    >>> result.to_markdown()
+    '> Quote text'
+"""
+
+import logging
+from dataclasses import dataclass
+from typing import Any
+
+from unpdf.processors.headings import Element, ParagraphElement
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BlockquoteElement(Element):
+    """Blockquote element.
+
+    Attributes:
+        text: Quote text content.
+        level: Nesting level (0 = top level, 1 = nested once, etc.).
+    """
+
+    level: int = 0
+
+    def to_markdown(self) -> str:
+        """Convert blockquote to Markdown.
+
+        Returns:
+            Text prefixed with `>` symbols.
+
+        Example:
+            >>> quote = BlockquoteElement("Quote text", level=0)
+            >>> quote.to_markdown()
+            '> Quote text'
+            >>> nested = BlockquoteElement("Nested", level=1)
+            >>> nested.to_markdown()
+            '> > Nested'
+        """
+        prefix = "> " * (self.level + 1)
+        return f"{prefix}{self.text}"
+
+
+class BlockquoteProcessor:
+    """Process text spans and detect blockquotes.
+
+    Blockquotes are detected by:
+    1. Large left indentation (significantly beyond normal margin)
+    2. Optional quote marks at start
+
+    Attributes:
+        base_indent: Normal left margin for body text (in points).
+        quote_threshold: Minimum indent beyond base to be a quote.
+        nested_threshold: Additional indent per nesting level.
+
+    Example:
+        >>> processor = BlockquoteProcessor()
+        >>> span = {"text": "Quote", "x0": 150}
+        >>> result = processor.process(span)
+        >>> isinstance(result, BlockquoteElement)
+        True
+    """
+
+    # Quote mark characters (regular, smart quotes, and guillemets)
+    QUOTE_CHARS = {'"', "'", "»", "«"}
+
+    def __init__(
+        self,
+        base_indent: float = 72.0,
+        quote_threshold: float = 40.0,
+        nested_threshold: float = 30.0,
+    ):
+        """Initialize BlockquoteProcessor.
+
+        Args:
+            base_indent: Normal left margin in points (default 72pt = 1 inch).
+            quote_threshold: Minimum indent beyond base for blockquote.
+                Default 40pt.
+            nested_threshold: Additional indent per nesting level.
+                Default 30pt.
+
+        Example:
+            >>> processor = BlockquoteProcessor(base_indent=100.0)
+            >>> processor.base_indent
+            100.0
+        """
+        self.base_indent = base_indent
+        self.quote_threshold = quote_threshold
+        self.nested_threshold = nested_threshold
+        self.quote_chars = self.QUOTE_CHARS
+
+    def process(self, span: dict[str, Any]) -> BlockquoteElement | ParagraphElement:
+        """Process text span and detect blockquotes.
+
+        Args:
+            span: Text span dictionary with keys:
+                - text (str): Text content
+                - x0 (float): Left x-coordinate
+
+        Returns:
+            BlockquoteElement if detected, otherwise ParagraphElement.
+
+        Example:
+            >>> processor = BlockquoteProcessor()
+            >>> span = {"text": '"Quote"', "x0": 120}
+            >>> result = processor.process(span)
+            >>> isinstance(result, BlockquoteElement)
+            True
+            >>> result.text
+            'Quote'
+        """
+        text = span["text"]
+        x0 = span.get("x0", 0)
+
+        # Calculate indent relative to base
+        indent = x0 - self.base_indent
+
+        # Check if indented enough to be a quote
+        if indent < self.quote_threshold:
+            return ParagraphElement(text=text)
+
+        # Calculate nesting level
+        level = int((indent - self.quote_threshold) / self.nested_threshold)
+        level = max(0, min(level, 5))  # Cap at 5 levels
+
+        # Remove leading/trailing quote marks if present
+        cleaned_text = self._remove_quote_marks(text)
+
+        logger.debug(f"Detected blockquote (level={level}): '{cleaned_text[:30]}...'")
+        return BlockquoteElement(text=cleaned_text, level=level)
+
+    def _remove_quote_marks(self, text: str) -> str:
+        """Remove leading and trailing quote marks from text.
+
+        Args:
+            text: Text that may have quote marks.
+
+        Returns:
+            Text with quote marks removed.
+
+        Example:
+            >>> processor = BlockquoteProcessor()
+            >>> processor._remove_quote_marks('"Quote"')
+            'Quote'
+            >>> processor._remove_quote_marks('"Quote')
+            'Quote'
+            >>> processor._remove_quote_marks('No quotes')
+            'No quotes'
+        """
+        text = text.strip()
+
+        # Remove leading quote
+        if text and text[0] in self.quote_chars:
+            text = text[1:].lstrip()
+
+        # Remove trailing quote
+        if text and text[-1] in self.quote_chars:
+            text = text[:-1].rstrip()
+
+        return text

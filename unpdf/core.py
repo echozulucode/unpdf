@@ -107,18 +107,39 @@ def convert_pdf(
         )
         list_processor = ListProcessor()
 
+        # Phase 4: Import additional processors
+        from unpdf.processors.blockquote import BlockquoteProcessor
+        from unpdf.processors.code import CodeProcessor
+
+        blockquote_processor = BlockquoteProcessor()
+        code_processor = CodeProcessor()
+
         elements = []
         for span in spans:
-            # Try list detection first (more specific)
+            # Process in priority order (most specific first):
+            # 1. Code (monospace fonts)
+            # 2. Lists (bullet/number markers)
+            # 3. Blockquotes (large indents)
+            # 4. Headings (large fonts)
+            # 5. Paragraphs (default)
+
+            code_result = code_processor.process(span)
+            if code_result.__class__.__name__ != "ParagraphElement":
+                elements.append(code_result)
+                continue
+
             list_result = list_processor.process(span)
+            if list_result.__class__.__name__ != "ParagraphElement":
+                elements.append(list_result)  # type: ignore[arg-type]
+                continue
 
-            # If not a list, try heading detection
-            if list_result.__class__.__name__ == "ParagraphElement":
-                element = heading_processor.process(span)
-            else:
-                element = list_result  # type: ignore[assignment]
+            quote_result = blockquote_processor.process(span)
+            if quote_result.__class__.__name__ != "ParagraphElement":
+                elements.append(quote_result)  # type: ignore[arg-type]
+                continue
 
-            elements.append(element)
+            heading_result = heading_processor.process(span)
+            elements.append(heading_result)  # type: ignore[arg-type]
 
         # Phase 3: Render elements to Markdown
         from unpdf.renderers.markdown import render_elements_to_markdown
