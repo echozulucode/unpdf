@@ -1,0 +1,82 @@
+{
+  "version": "1.0",
+  "project": "unpdf",
+  "auto_approve": {
+    "enabled": true,
+    "commands": {
+      "read": {
+        "allowed": [
+          "cat", "less", "more", "head", "tail",
+          "Get-Content", "Select-String",
+          "grep", "find", "ls", "dir", "tree",
+          "git status", "git diff", "git log"
+        ],
+        "description": "Read-only file operations"
+      },
+      "test": {
+        "allowed": [
+          "pytest", "python -m pytest",
+          "python -m unittest",
+          "coverage run", "coverage report"
+        ],
+        "description": "Running tests"
+      },
+      "lint": {
+        "allowed": [
+          "ruff check", "ruff format",
+          "black", "flake8", "mypy",
+          "pylint", "isort"
+        ],
+        "description": "Code quality checks"
+      },
+      "build": {
+        "allowed": [
+          "python -m build",
+          "pip install -e .",
+          "python setup.py develop"
+        ],
+        "description": "Building the package"
+      },
+      "install_venv": {
+        "allowed": [
+          "pip install",
+          "poetry install",
+          "pip install -r requirements.txt"
+        ],
+        "conditions": [
+          "VIRTUAL_ENV is set",
+          "Inside project directory"
+        ],
+        "description": "Installing packages in virtual environment only"
+      },
+      "run_dev": {
+        "allowed": [
+          "unpdf",
+          "python -m unpdf",
+          "python unpdf/cli.py"
+        ],
+        "description": "Running the application"
+      }
+    },
+    "deny": {
+      "patterns": [
+        "rm -rf /",
+        "Remove-Item -Recurse -Force",
+        "git push --force",
+        "sudo",
+        "Format-Volume",
+        "DROP DATABASE",
+        "twine upload"
+      ],
+      "description": "Always require confirmation for these"
+    }
+  },
+  "security": {
+    "require_venv": true,
+    "allowed_directories": [
+      "C:\\Projects\\blog\\20251102-pdf-to-markdown\\unpdf",
+      "~/projects/unpdf"
+    ],
+    "deny_system_modifications": true
+  }
+}
