@@ -275,28 +275,43 @@ Building a Python package (MIT-licensed) that converts PDF files to Markdown for
 
 ---
 
-## Phase 6: Images & Links (Week 7)
+## Phase 6: Images & Links (Week 7) ✅ COMPLETE
 
-### 6.1 Image Extraction
-- [ ] Extract embedded images (JPEG, PNG)
-- [ ] Save images as separate files
-- [ ] Generate unique filenames for images
-- [ ] Insert Markdown image references: `![alt](image.png)`
-- [ ] Detect and extract image captions (if available)
+**Status:** ✅ Complete (2025-11-02)  
+**Completion Report:** [phase-6-completion.md](phase-6-completion.md)
 
-### 6.2 Hyperlink Detection
-- [ ] Detect PDF URI annotations
-- [ ] Extract link text and URL
-- [ ] Convert to Markdown links: `[text](url)`
-- [ ] Handle plain text URLs
+### 6.1 Image Extraction ✅
+- [x] Extract embedded images (JPEG, PNG)
+- [x] Save images as separate files
+- [x] Generate unique filenames for images (MD5-based)
+- [x] Insert Markdown image references: `![alt](image.png)`
+- [x] Detect and extract image captions (50pt below image)
+- [x] Handle extraction failures gracefully
+- [x] Support multiple images across pages
 
-### 6.3 Testing
-- [ ] Test image extraction and saving
-- [ ] Test image reference generation
-- [ ] Test hyperlink detection
-- [ ] Test plain URL handling
+### 6.2 Hyperlink Detection ✅
+- [x] Detect PDF URI annotations
+- [x] Extract link text and URL
+- [x] Convert to Markdown links: `[text](url)`
+- [x] Handle plain text URLs (regex-based)
+- [x] Escape special characters in link text
+- [x] Remove duplicate URLs
+- [x] Fallback to URL as text when needed
 
-**Deliverable:** Converter handles images and hyperlinks
+### 6.3 Testing ✅
+- [x] Test image extraction and saving (16 tests)
+- [x] Test image reference generation
+- [x] Test hyperlink detection (16 tests)
+- [x] Test plain URL handling
+- [x] Test caption detection
+- [x] Test error handling
+
+**Deliverable:** ✅ Converter handles images and hyperlinks
+- Image extractor: `unpdf/extractors/images.py` ✅
+- Link processor: `unpdf/processors/links.py` ✅
+- Caption detection ✅
+- Tests: 121 passing (5 skipped) ✅
+- Coverage: 72% (100% for new modules) ✅
 
 ---
 
