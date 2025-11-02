@@ -74,18 +74,22 @@ class BlockquoteProcessor:
 
     def __init__(
         self,
-        base_indent: float = 72.0,
-        quote_threshold: float = 40.0,
+        base_indent: float = 52.0,
+        quote_threshold: float = 15.0,
         nested_threshold: float = 30.0,
+        max_indent: float = 100.0,
     ):
         """Initialize BlockquoteProcessor.
 
         Args:
-            base_indent: Normal left margin in points (default 72pt = 1 inch).
+            base_indent: Normal left margin in points (default 52pt).
             quote_threshold: Minimum indent beyond base for blockquote.
-                Default 40pt.
+                Default 15pt.
             nested_threshold: Additional indent per nesting level.
                 Default 30pt.
+            max_indent: Maximum indent to consider as blockquote. Text with
+                indent beyond this is likely misplaced/formatted differently.
+                Default 100pt.
 
         Example:
             >>> processor = BlockquoteProcessor(base_indent=100.0)
@@ -95,6 +99,7 @@ class BlockquoteProcessor:
         self.base_indent = base_indent
         self.quote_threshold = quote_threshold
         self.nested_threshold = nested_threshold
+        self.max_indent = max_indent
         self.quote_chars = self.QUOTE_CHARS
 
     def process(self, span: dict[str, Any]) -> BlockquoteElement | ParagraphElement:
@@ -127,6 +132,13 @@ class BlockquoteProcessor:
 
         # Check if indented enough to be a quote
         if indent < self.quote_threshold:
+            return ParagraphElement(text=text, y0=y0, page_number=page_number)
+
+        # Check if indented TOO much (likely not a blockquote but misplaced text)
+        if indent > self.max_indent:
+            logger.debug(
+                f"Skipping blockquote detection: indent={indent:.1f} > max={self.max_indent}"
+            )
             return ParagraphElement(text=text, y0=y0, page_number=page_number)
 
         # Calculate nesting level

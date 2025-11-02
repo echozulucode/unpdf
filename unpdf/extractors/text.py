@@ -20,6 +20,9 @@ from pathlib import Path
 from typing import Any
 
 import pdfplumber
+import pymupdf
+
+from unpdf.processors.checkboxes import CheckboxDetector
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +143,10 @@ def extract_text_with_metadata(
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
     spans: list[dict[str, Any]] = []
+    checkbox_detector = CheckboxDetector()
+
+    # Open PyMuPDF document for checkbox detection
+    pymupdf_doc = pymupdf.open(str(pdf_path))
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -157,6 +164,13 @@ def extract_text_with_metadata(
             )
 
             for page_num, page in enumerate(pages_to_process, start=1):
+                # Detect checkboxes on this page using PyMuPDF
+                pymupdf_page = pymupdf_doc[page_num - 1]
+                page_checkboxes = checkbox_detector.detect_checkboxes(pymupdf_page)
+                logger.debug(
+                    f"Page {page_num}: Detected {len(page_checkboxes)} checkboxes"
+                )
+
                 # Extract characters with detailed metadata
                 chars = page.chars
 
@@ -227,12 +241,30 @@ def extract_text_with_metadata(
                 if current_span and current_span["text"].strip():
                     spans.append(current_span)
 
+                # Annotate spans with checkboxes for this page
+                # Filter spans for this page
+                page_start_idx = len(spans) - sum(
+                    1 for s in spans if s["page_number"] == page_num
+                )
+                page_spans = spans[page_start_idx:]
+
+                if page_checkboxes and page_spans:
+                    # Get page height for coordinate conversion
+                    page_height = page.height
+                    annotated = checkbox_detector.annotate_text_with_checkboxes(
+                        page_spans, page_checkboxes, page_height
+                    )
+                    # Update the spans in place
+                    spans[page_start_idx:] = annotated
+
         logger.info(f"Extracted {len(spans)} text span(s)")
         return spans
 
     except Exception as e:
         logger.error(f"Error extracting text from {pdf_path}: {e}")
         raise ValueError(f"Failed to extract text from PDF: {e}") from e
+    finally:
+        pymupdf_doc.close()
 
 
 def _is_bold_font(font_name: str) -> bool:

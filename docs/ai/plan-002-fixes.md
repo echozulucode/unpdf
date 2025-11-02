@@ -1,6 +1,6 @@
 # Plan 002: Bug Fixes for Obsidian PDF Conversion Issues
 
-**Status**: In Progress (Phase 1-6 Complete)  
+**Status**: In Progress (Phase 1-8 Complete, Phase 9 Pending)  
 **Created**: 2025-11-02  
 **Updated**: 2025-11-02  
 **Priority**: High
@@ -73,18 +73,20 @@ Testing with example-obsidian revealed multiple critical issues in the PDF-to-Ma
 - [x] **Critical fix**: Exclude text spans that overlap with table bounding boxes (prevents duplicate content)
 - [x] Test that content sections stay in correct order
 
-### Phase 4: Fix Table Header False Positives
-- [ ] Stop detecting table headers as H6 headings
-- [ ] Add table header row detection to suppress heading processor
-- [ ] Validate tables are actual tables (not just header rows)
-- [ ] Add confidence scoring for table detection
+### Phase 4: Fix Table Header False Positives ✓
+- [x] Stop detecting table headers as H6 headings
+- [x] Add table header row detection to suppress heading processor
+- [x] Validate tables are actual tables (not just header rows)
+- [x] Tables now render correctly without H6 artifacts
 
-### Phase 5: Fix Code Block Detection
-- [ ] Detect triple-backtick fenced code blocks (```language)
-- [ ] Preserve code block language identifiers
-- [ ] Distinguish between inline code (single backticks) and code blocks
-- [ ] Handle code blocks with proper line breaks and indentation
-- [ ] Prevent inline code within text from being split into blocks
+### Phase 5: Fix Code Block Detection ✓
+- [x] **ISSUE IDENTIFIED**: Code blocks use monospace font (`CascadiaMonoRoman`) but were split into multiple short spans
+- [x] Implemented `_group_code_blocks()` to merge consecutive monospace spans on adjacent lines into code blocks
+- [x] Detect triple-backtick fenced code blocks (```language) based on span grouping (3+ consecutive lines)
+- [x] Preserve code block language identifiers (python, json, bash detected)
+- [x] Distinguish between inline code (single backticks) and code blocks based on consecutive span count
+- [x] Handle code blocks with proper line breaks and indentation
+- [x] Short code spans remain as inline code
 
 ### Phase 6: Fix List Detection ✓
 - [x] **ROOT CAUSE IDENTIFIED**: Obsidian PDF export strips bullet characters! List items appear as plain text with indentation.
@@ -96,15 +98,32 @@ Testing with example-obsidian revealed multiple critical issues in the PDF-to-Ma
 - [x] Handle nested lists with proper indentation based on x0 values
 - [x] Preserve list structure and hierarchy
 - [x] **Strategy**: Use combination of indentation, context (previous headers), and line length heuristics
-- **Note**: Checkbox markers ([x]/[ ]) also stripped by Obsidian PDF export - cannot distinguish checked vs unchecked
+- [x] **Checkbox Detection**: Identified that checkboxes are rendered as vector drawings (not text):
+  - Checked boxes: Gray filled circles at specific coordinates
+  - Unchecked boxes: Different gray filled circles
+  - Need to detect drawing objects and correlate with adjacent text
+- **NEXT**: Implement checkbox detection using PDF drawing analysis
 
-### Phase 7: Fix Blockquotes and Inline Elements
-- [ ] Detect blockquotes and add > prefix
-- [ ] Handle multi-line blockquotes
-- [ ] Fix spurious >>> blockquote symbols in inline code contexts
-- [ ] Preserve inline code within text without breaking into blocks
+### Phase 7: Fix Checkbox Detection ✓
+- [x] Analyze PDF drawing objects to find checkbox markers
+- [x] Identify checkbox patterns (filled/unfilled circles at y-coordinates)
+- [x] Correlate drawings with nearby text to identify checklist items
+- [x] Distinguish checked ([x]) vs unchecked ([ ]) based on drawing properties
+- [x] Apply checkbox syntax to list items with detected checkboxes
+- [x] **Technical**: Use page.get_drawings() to find circular shapes, match with text by y-coordinate proximity
+- [x] **Coordinate conversion**: Handle PyMuPDF (top-left origin) vs pdfplumber (bottom-left origin) coordinate systems
+- [x] **Detection logic**: Checked boxes have purple fill + checkmark, unchecked have no fill or outline only
 
-### Phase 8: Additional Features
+### Phase 8: Fix Blockquotes and Inline Elements ✓
+- [x] **ROOT CAUSE**: Spurious `>>>` symbols came from incorrect base_indent (72.0 vs actual 51.7) and too-low quote_threshold
+- [x] Updated base_indent to 52.0pt (actual document margin)
+- [x] Reduced quote_threshold to 15.0pt to detect real blockquotes
+- [x] Added max_indent=100.0pt to prevent over-indented text from being detected as blockquotes
+- [x] Blockquotes now correctly detected with `>` prefix
+- [x] Spurious `>>>` symbols eliminated
+- **KNOWN ISSUE**: Some inline code spans with extreme indentation (x0>150) now detected as checklist items - needs further investigation
+
+### Phase 9: Additional Features
 - [ ] Add frontmatter detection/preservation (YAML between ---) 
 - [ ] Add horizontal rule detection (--- separators)
 - [ ] Preserve hyperlinks [text](url)
@@ -112,22 +131,22 @@ Testing with example-obsidian revealed multiple critical issues in the PDF-to-Ma
 
 ## Success Criteria
 
-- [x] Headings match original levels (H1 = H1, H2 = H2, etc.) - MOSTLY DONE (Phase 2)
+- [x] Headings match original levels (H1 = H1, H2 = H2, etc.) - DONE (Phase 2)
 - [x] All text has proper spacing between words - DONE (Phase 1)
 - [x] Content sections appear in correct order (not scrambled by table extraction) - DONE (Phase 3)
 - [x] Tables render correctly at their proper positions - DONE (Phase 3)
-- [ ] No table headers detected as H6 headings - NEXT (Phase 4)
-- [ ] Fenced code blocks (```) preserved with language identifiers
-- [ ] Inline code stays inline, not split into blocks
+- [x] No table headers detected as H6 headings - DONE (Phase 4)
+- [x] Fenced code blocks (```) preserved with language identifiers - DONE (Phase 5)
+- [x] Inline code stays inline, not split into blocks - DONE (Phase 5)
 - [x] Lists maintain correct numbering (using "1." markdown standard) - DONE (Phase 6)
 - [x] Unordered lists appear under correct headers - DONE (Phase 6)
 - [x] Nested lists render with proper indentation - DONE (Phase 6)
-- **Note**: Checkbox syntax cannot be preserved (Obsidian PDF strips markers)
-- [ ] Blockquotes render with proper > prefix
-- [ ] No spurious >>> symbols in text
-- [ ] Horizontal rules (---) preserved
-- [ ] Frontmatter preserved if present
-- [ ] Hyperlinks preserved as [text](url)
+- [x] Checkbox syntax preserved by detecting vector drawings - DONE (Phase 7)
+- [x] Blockquotes render with proper > prefix - DONE (Phase 8)
+- [x] No spurious >>> symbols in text - DONE (Phase 8)
+- [ ] Horizontal rules (---) preserved - PENDING (Phase 9)
+- [ ] Frontmatter preserved if present - PENDING (Phase 9)
+- [ ] Hyperlinks preserved as [text](url) - PENDING (Phase 9)
 
 ## Testing
 

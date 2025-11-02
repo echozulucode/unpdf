@@ -17,8 +17,105 @@ Example:
 
 import logging
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _group_code_blocks(elements: list[Any]) -> list[Any]:
+    """Group consecutive inline code elements into code blocks.
+
+    Args:
+        elements: List of processed elements (InlineCodeElement, ParagraphElement, etc.)
+
+    Returns:
+        List with consecutive inline code elements merged into CodeBlockElement instances.
+    """
+    from unpdf.processors.code import CodeBlockElement, InlineCodeElement
+
+    if not elements:
+        return elements
+
+    grouped = []
+    code_buffer = []
+    prev_y0 = None
+    prev_page = None
+
+    for elem in elements:
+        if isinstance(elem, InlineCodeElement):
+            # Check if this code element is consecutive (same page, close y-position)
+            current_y0 = getattr(elem, "y0", 0)
+            current_page = getattr(elem, "page_number", 1)
+
+            if code_buffer and (
+                prev_page != current_page or abs(current_y0 - prev_y0) > 20
+            ):
+                # Gap too large or different page - flush buffer as code block
+                if len(code_buffer) >= 3:  # At least 3 lines for a code block
+                    text = "\n".join(c.text for c in code_buffer)
+                    # Try to infer language from first few lines
+                    from unpdf.processors.code import CodeProcessor
+
+                    lang = CodeProcessor()._infer_language(text)
+                    grouped.append(
+                        CodeBlockElement(
+                            text=text,
+                            language=lang,
+                            y0=code_buffer[0].y0,
+                            page_number=code_buffer[0].page_number,
+                        )
+                    )
+                else:
+                    # Keep as inline code if too short
+                    grouped.extend(code_buffer)
+                code_buffer = []
+
+            code_buffer.append(elem)
+            prev_y0 = current_y0
+            prev_page = current_page
+        else:
+            # Non-code element - flush buffer first
+            if code_buffer:
+                if len(code_buffer) >= 3:
+                    text = "\n".join(c.text for c in code_buffer)
+                    from unpdf.processors.code import CodeProcessor
+
+                    lang = CodeProcessor()._infer_language(text)
+                    grouped.append(
+                        CodeBlockElement(
+                            text=text,
+                            language=lang,
+                            y0=code_buffer[0].y0,
+                            page_number=code_buffer[0].page_number,
+                        )
+                    )
+                else:
+                    grouped.extend(code_buffer)
+                code_buffer = []
+                prev_y0 = None
+                prev_page = None
+
+            grouped.append(elem)
+
+    # Flush remaining code buffer
+    if code_buffer:
+        if len(code_buffer) >= 3:
+            text = "\n".join(c.text for c in code_buffer)
+            from unpdf.processors.code import CodeProcessor
+
+            lang = CodeProcessor()._infer_language(text)
+            grouped.append(
+                CodeBlockElement(
+                    text=text,
+                    language=lang,
+                    y0=code_buffer[0].y0,
+                    page_number=code_buffer[0].page_number,
+                )
+            )
+        else:
+            grouped.extend(code_buffer)
+
+    return grouped
 
 
 def convert_pdf(
@@ -145,7 +242,9 @@ def convert_pdf(
 
         # Phase 4: Import additional processors
         from unpdf.processors.blockquote import BlockquoteProcessor
-        from unpdf.processors.code import CodeProcessor
+        from unpdf.processors.code import (
+            CodeProcessor,
+        )
 
         blockquote_processor = BlockquoteProcessor()
         code_processor = CodeProcessor()
@@ -183,6 +282,9 @@ def convert_pdf(
 
             # If nothing else matched, it's a paragraph
             elements.append(heading_result)  # type: ignore[arg-type]
+
+        # Group consecutive inline code elements into code blocks
+        elements = _group_code_blocks(elements)
 
         # Merge tables into elements at correct positions
         # Tables should appear in reading order based on page and y-position

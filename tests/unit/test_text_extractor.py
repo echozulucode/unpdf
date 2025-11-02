@@ -71,14 +71,10 @@ def test_should_continue_span_different_format():
     )
 
     # Different bold
-    assert not _should_continue_span(
-        current_span, "Helvetica", 12.0, True, False, char
-    )
+    assert not _should_continue_span(current_span, "Helvetica", 12.0, True, False, char)
 
     # Different italic
-    assert not _should_continue_span(
-        current_span, "Helvetica", 12.0, False, True, char
-    )
+    assert not _should_continue_span(current_span, "Helvetica", 12.0, False, True, char)
 
 
 def test_calculate_average_font_size_empty():
