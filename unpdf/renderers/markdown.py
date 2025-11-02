@@ -20,10 +20,11 @@ logger = logging.getLogger(__name__)
 def render_elements_to_markdown(elements: list[Any]) -> str:
     """Render document elements to Markdown format.
 
-    Converts structured elements (headings, lists, paragraphs) to Markdown.
+    Converts structured elements (headings, lists, paragraphs, tables) to Markdown.
 
     Args:
-        elements: List of Element objects (HeadingElement, ListItemElement, etc.).
+        elements: List of Element objects (HeadingElement, ListItemElement,
+                 TableElement, etc.).
 
     Returns:
         Formatted Markdown string.
@@ -48,13 +49,15 @@ def render_elements_to_markdown(elements: list[Any]) -> str:
         # Get markdown representation from element
         md_text = element.to_markdown()
 
-        # Add spacing around headings
-        if element.__class__.__name__ == "HeadingElement":
-            # Blank line before heading (except first element)
+        element_type = element.__class__.__name__
+
+        # Add spacing around headings and tables
+        if element_type in ("HeadingElement", "TableElement"):
+            # Blank line before (except first element)
             if markdown_parts:
                 markdown_parts.append("")
             markdown_parts.append(md_text)
-            # Blank line after heading
+            # Blank line after
             markdown_parts.append("")
         else:
             markdown_parts.append(md_text)

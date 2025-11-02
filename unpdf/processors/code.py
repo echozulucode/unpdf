@@ -1,4 +1,4 @@
-"""Code block detection processor for unpdf.
+r"""Code block detection processor for unpdf.
 
 This module detects code blocks and inline code based on monospace fonts
 and other heuristics.

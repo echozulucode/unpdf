@@ -25,6 +25,7 @@ def convert_pdf(
     pdf_path: str | Path,
     output_path: str | Path | None = None,
     detect_code_blocks: bool = True,
+    extract_tables: bool = True,
     heading_font_ratio: float = 1.3,
 ) -> str:
     """Convert PDF file to Markdown.
@@ -37,6 +38,8 @@ def convert_pdf(
         output_path: Optional output path. If None, returns Markdown as string.
             If provided, writes to file and returns the content.
         detect_code_blocks: Whether to detect and format code blocks.
+            Default: True.
+        extract_tables: Whether to extract and convert tables.
             Default: True.
         heading_font_ratio: Font size multiplier for heading detection.
             Text with font_size > avg_font_size * ratio is treated as heading.
@@ -87,13 +90,32 @@ def convert_pdf(
     # renderer = MarkdownRenderer()
     # markdown = renderer.render(elements)
 
-    # Phase 2: Extract text with metadata
+    # Phase 2: Extract text with metadata and tables
     from unpdf.extractors.text import extract_text_with_metadata
 
     spans = extract_text_with_metadata(pdf_path)
 
-    if not spans:
-        logger.warning(f"No text extracted from {pdf_path}")
+    # Extract tables if enabled
+    table_elements = []
+    if extract_tables:
+        try:
+            import pdfplumber
+
+            from unpdf.processors.table import TableProcessor
+
+            table_processor = TableProcessor()
+
+            with pdfplumber.open(pdf_path) as pdf:
+                for page in pdf.pages:
+                    page_tables = table_processor.extract_tables(page)
+                    table_elements.extend(page_tables)
+
+            logger.info(f"Extracted {len(table_elements)} table(s)")
+        except Exception as e:
+            logger.warning(f"Failed to extract tables: {e}")
+
+    if not spans and not table_elements:
+        logger.warning(f"No content extracted from {pdf_path}")
         markdown = ""
     else:
         # Phase 3: Process spans into structured elements
@@ -101,7 +123,7 @@ def convert_pdf(
         from unpdf.processors.headings import HeadingProcessor
         from unpdf.processors.lists import ListProcessor
 
-        avg_font_size = calculate_average_font_size(spans)
+        avg_font_size = calculate_average_font_size(spans) if spans else 12.0
         heading_processor = HeadingProcessor(
             avg_font_size=avg_font_size, heading_ratio=heading_font_ratio
         )
@@ -140,6 +162,9 @@ def convert_pdf(
 
             heading_result = heading_processor.process(span)
             elements.append(heading_result)  # type: ignore[arg-type]
+
+        # Add tables to elements
+        elements.extend(table_elements)  # type: ignore[arg-type]
 
         # Phase 3: Render elements to Markdown
         from unpdf.renderers.markdown import render_elements_to_markdown

@@ -234,29 +234,44 @@ Building a Python package (MIT-licensed) that converts PDF files to Markdown for
 
 ---
 
-## Phase 5: Table Extraction (Week 5-6)
+## Phase 5: Table Extraction (Week 5-6) ✅ COMPLETE
 
-### 5.1 Table Detection
-- [ ] Integrate Camelot or pdfplumber table detection
-- [ ] Detect tables via PDF lines/grids
-- [ ] Detect tables via column alignment patterns
-- [ ] Handle tables without explicit cell borders
+**Status:** ✅ Complete (2025-11-02)  
+**Completion Report:** [phase-5-completion.md](phase-5-completion.md)
 
-### 5.2 Table Conversion
-- [ ] Convert to Markdown pipe tables
-- [ ] Create header row with separator (`|---|---|`)
-- [ ] Format data rows with proper alignment
-- [ ] Handle merged cells (best effort)
-- [ ] Fallback: plain text for complex tables
+### 5.1 Table Detection ✅
+- [x] Integrate pdfplumber table detection
+- [x] Detect tables via PDF lines/grids (strict strategy)
+- [x] Detect tables via column alignment patterns (text strategy)
+- [x] Handle tables without explicit cell borders (fallback)
+- [x] Configurable table detection settings
 
-### 5.3 Testing
-- [ ] Test simple tables with borders
-- [ ] Test tables without borders
-- [ ] Test merged cells
-- [ ] Test complex multi-row headers
-- [ ] Test table alignment
+### 5.2 Table Conversion ✅
+- [x] Convert to Markdown pipe tables
+- [x] Create header row with separator (`|---|---|`)
+- [x] Format data rows with proper alignment
+- [x] Handle uneven rows (normalize to max column count)
+- [x] Handle None/null cells
+- [x] Auto-calculate column widths
+- [ ] Handle merged cells (deferred - Markdown limitation)
+- [ ] Fallback for complex tables (deferred - rare case)
 
-**Deliverable:** Converter handles tables and outputs pipe-table Markdown
+### 5.3 Testing ✅
+- [x] Test simple tables with borders (16 unit tests)
+- [x] Test tables without borders (text-based detection)
+- [x] Test uneven rows and empty cells
+- [x] Test header detection heuristics
+- [x] Test column alignment
+- [ ] Test merged cells (deferred)
+- [ ] Test complex multi-row headers (deferred)
+
+**Deliverable:** ✅ Converter handles tables and outputs pipe-table Markdown
+- Table processor: `unpdf/processors/table.py` ✅
+- pdfplumber integration ✅
+- Two-strategy detection (lines + text) ✅
+- Header detection heuristic ✅
+- Tests: 88 passing (5 skipped) ✅
+- Coverage: 66% (stable) ✅
 
 ---
 
