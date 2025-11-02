@@ -11,6 +11,17 @@ GitHub Copilot CLI can request your approval before executing potentially danger
 
 ---
 
+## ⚠️ Important Note
+
+**GitHub Copilot CLI does NOT read `.copilot-cli.json` files.** That file is for documentation only.
+
+The auto-approval configuration must be done through:
+1. **Shell environment variables** (PowerShell `$PROFILE`)
+2. **VS Code settings** (`.vscode/settings.json`) - for Copilot in VS Code only
+3. **GitHub Copilot settings** (if using GitHub Copilot CLI beta features)
+
+This guide focuses on **PowerShell $PROFILE** configuration since that's what actually works.
+
 ## Configuration Strategy
 
 ### ✅ Auto-Approve (Safe Commands)

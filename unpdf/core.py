@@ -87,10 +87,28 @@ def convert_pdf(
     # renderer = MarkdownRenderer()
     # markdown = renderer.render(elements)
 
-    # Placeholder implementation
-    markdown = (
-        f"# Placeholder\n\nConverting: {pdf_path.name}\n\n(Implementation in progress)"
-    )
+    # Phase 2: Extract text with metadata
+    from unpdf.extractors.text import extract_text_with_metadata
+
+    spans = extract_text_with_metadata(pdf_path)
+
+    if not spans:
+        logger.warning(f"No text extracted from {pdf_path}")
+        markdown = ""
+    else:
+        # TODO: Phase 3 - Implement processing (headings, lists, etc.)
+        # from unpdf.processors.headings import HeadingProcessor
+        # processor = HeadingProcessor(avg_font_size=12, heading_ratio=heading_font_ratio)
+        # elements = [processor.process(span) for span in spans]
+
+        # Phase 2: Basic rendering with inline formatting
+        from unpdf.renderers.markdown import render_spans_to_markdown
+
+        markdown = render_spans_to_markdown(spans)
+
+        logger.info(
+            f"Converted {len(spans)} text span(s) to {len(markdown)} character(s)"
+        )
 
     # Write to file if output path provided
     if output_path:
