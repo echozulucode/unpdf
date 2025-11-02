@@ -238,9 +238,10 @@ class TestCLIMain:
         pdf_file = tmp_path / "test.pdf"
         pdf_file.write_text("dummy")
 
-        with patch.object(
-            sys, "argv", ["unpdf", str(pdf_file), "--verbose"]
-        ), patch.object(sys, "exit"):
+        with (
+            patch.object(sys, "argv", ["unpdf", str(pdf_file), "--verbose"]),
+            patch.object(sys, "exit"),
+        ):
             main()
 
         # Just verify it doesn't crash with verbose
@@ -276,9 +277,10 @@ class TestCLIMain:
 
     def test_version_flag(self):
         """Test --version flag displays version."""
-        with patch.object(sys, "argv", ["unpdf", "--version"]), pytest.raises(
-            SystemExit
-        ) as exc_info:
+        with (
+            patch.object(sys, "argv", ["unpdf", "--version"]),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             main()
 
         # argparse exits with 0 for --version
