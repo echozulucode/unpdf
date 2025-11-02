@@ -24,6 +24,71 @@ import pdfplumber
 logger = logging.getLogger(__name__)
 
 
+def extract_tables(
+    pdf_path: Path, page_numbers: list[int] | None = None
+) -> list[dict[str, Any]]:
+    """Extract tables from PDF with position metadata.
+
+    Args:
+        pdf_path: Path to the PDF file to process.
+        page_numbers: Optional list of specific page numbers (1-indexed) to process.
+            If None, processes all pages.
+
+    Returns:
+        List of dictionaries, one per table, containing:
+            - data (list[list[str]]): Table data as 2D list.
+            - bbox (tuple): Bounding box (x0, y0, x1, y1).
+            - page_number (int): Page number (1-indexed).
+
+    Raises:
+        FileNotFoundError: If PDF file doesn't exist.
+        ValueError: If PDF is corrupted or unreadable.
+
+    Example:
+        >>> tables = extract_tables(Path("doc.pdf"))
+        >>> print(f"Found {len(tables)} table(s)")
+        Found 2 table(s)
+    """
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"PDF not found: {pdf_path}")
+
+    tables: list[dict[str, Any]] = []
+
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            # Determine which pages to process
+            if page_numbers:
+                page_indices = [p - 1 for p in page_numbers]
+                pages_to_process = [
+                    (page_numbers[i], pdf.pages[idx])
+                    for i, idx in enumerate(page_indices)
+                    if idx < len(pdf.pages)
+                ]
+            else:
+                pages_to_process = [(i + 1, page) for i, page in enumerate(pdf.pages)]
+
+            for page_num, page in pages_to_process:
+                page_tables = page.find_tables()
+
+                for table in page_tables:
+                    extracted = table.extract()
+                    if extracted:
+                        tables.append(
+                            {
+                                "data": extracted,
+                                "bbox": table.bbox,
+                                "page_number": page_num,
+                            }
+                        )
+
+        logger.info(f"Extracted {len(tables)} table(s)")
+        return tables
+
+    except Exception as e:
+        logger.error(f"Error extracting tables from {pdf_path}: {e}")
+        raise ValueError(f"Failed to extract tables from PDF: {e}") from e
+
+
 def extract_text_with_metadata(
     pdf_path: Path, page_numbers: list[int] | None = None
 ) -> list[dict[str, Any]]:
@@ -102,13 +167,25 @@ def extract_text_with_metadata(
                 # Group characters into text spans
                 # For now, we'll create one span per character run with same formatting
                 current_span: dict[str, Any] | None = None
+                prev_char_x1 = None
 
                 for char in chars:
                     text = char.get("text", "")
+                    char_x0 = char.get("x0", 0)
+
+                    # Add space between words if there's a horizontal gap
+                    if (
+                        current_span
+                        and prev_char_x1 is not None
+                        and char_x0 - prev_char_x1 > 2.0  # Gap threshold
+                    ):
+                        current_span["text"] += " "
+
                     if not text.strip():  # Skip pure whitespace
                         # But preserve it in current span if building one
                         if current_span:
                             current_span["text"] += text
+                        prev_char_x1 = char.get("x1", prev_char_x1)
                         continue
 
                     font_name = char.get("fontname", "")
@@ -120,11 +197,12 @@ def extract_text_with_metadata(
 
                     # Check if we should continue current span or start new one
                     if current_span and _should_continue_span(
-                        current_span, font_name, font_size, is_bold, is_italic
+                        current_span, font_name, font_size, is_bold, is_italic, char
                     ):
                         # Continue current span
                         current_span["text"] += text
                         current_span["x1"] = char.get("x1", current_span["x1"])
+                        prev_char_x1 = char.get("x1", prev_char_x1)
                     else:
                         # Save previous span if exists
                         if current_span and current_span["text"].strip():
@@ -143,6 +221,7 @@ def extract_text_with_metadata(
                             "y1": char.get("y1", 0),
                             "page_number": page_num,
                         }
+                        prev_char_x1 = char.get("x1", 0)
 
                 # Don't forget the last span
                 if current_span and current_span["text"].strip():
@@ -193,6 +272,7 @@ def _should_continue_span(
     font_size: float,
     is_bold: bool,
     is_italic: bool,
+    char: dict[str, Any],
 ) -> bool:
     """Determine if new character should continue current span or start new one.
 
@@ -202,10 +282,16 @@ def _should_continue_span(
         font_size: Font size of new character.
         is_bold: Whether new character is bold.
         is_italic: Whether new character is italic.
+        char: Character dictionary with position info.
 
     Returns:
         True if should continue current span, False to start new span.
     """
+    # Check for line break (significant vertical distance)
+    char_y0 = char.get("y0", 0)
+    if abs(char_y0 - current_span["y0"]) > 2.0:
+        return False
+
     # Continue if all formatting matches
     return bool(
         current_span["font_family"] == font_name

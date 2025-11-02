@@ -119,13 +119,15 @@ class BlockquoteProcessor:
         """
         text = span["text"]
         x0 = span.get("x0", 0)
+        y0 = span.get("y0", 0.0)
+        page_number = span.get("page_number", 1)
 
         # Calculate indent relative to base
         indent = x0 - self.base_indent
 
         # Check if indented enough to be a quote
         if indent < self.quote_threshold:
-            return ParagraphElement(text=text)
+            return ParagraphElement(text=text, y0=y0, page_number=page_number)
 
         # Calculate nesting level
         level = int((indent - self.quote_threshold) / self.nested_threshold)
@@ -135,7 +137,9 @@ class BlockquoteProcessor:
         cleaned_text = self._remove_quote_marks(text)
 
         logger.debug(f"Detected blockquote (level={level}): '{cleaned_text[:30]}...'")
-        return BlockquoteElement(text=cleaned_text, level=level)
+        return BlockquoteElement(
+            text=cleaned_text, level=level, y0=y0, page_number=page_number
+        )
 
     def _remove_quote_marks(self, text: str) -> str:
         """Remove leading and trailing quote marks from text.

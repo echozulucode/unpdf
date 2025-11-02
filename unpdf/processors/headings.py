@@ -25,6 +25,8 @@ class Element:
     """Base class for document elements."""
 
     text: str
+    y0: float = 0.0
+    page_number: int = 1
 
     def to_markdown(self) -> str:
         """Convert element to Markdown string.
@@ -44,7 +46,7 @@ class HeadingElement(Element):
         level: Heading level from 1 (largest) to 6 (smallest).
     """
 
-    level: int
+    level: int = 1
 
     def to_markdown(self) -> str:
         """Convert heading to Markdown.
@@ -172,24 +174,33 @@ class HeadingProcessor:
         text = span["text"]
         font_size = span["font_size"]
         is_bold = span.get("is_bold", False)
+        y0 = span.get("y0", 0.0)
+        page_number = span.get("page_number", 1)
 
-        # Check if text is large enough to be a heading
-        if font_size >= self.threshold:
+        # Bold text at or above average size is likely a heading
+        # OR text significantly larger than average (threshold)
+        if (
+            is_bold
+            and font_size >= (self.avg_font_size * 0.90)
+            or font_size >= self.threshold
+        ):
             level = self._calculate_level(font_size, is_bold)
             logger.debug(
                 f"Detected heading: '{text[:30]}...' "
                 f"(size={font_size:.1f}pt, level={level})"
             )
-            return HeadingElement(text=text, level=level)
+            return HeadingElement(
+                text=text, level=level, y0=y0, page_number=page_number
+            )
 
         # Regular paragraph
-        return ParagraphElement(text=text)
+        return ParagraphElement(text=text, y0=y0, page_number=page_number)
 
     def _calculate_level(self, font_size: float, is_bold: bool) -> int:
         """Calculate heading level based on font size.
 
         Larger text gets lower level numbers (H1 = largest).
-        Bold text gets slight priority in level assignment.
+        Uses absolute font size ranges with some flexibility.
 
         Args:
             font_size: Font size of the text in points.
@@ -199,32 +210,41 @@ class HeadingProcessor:
             Heading level from 1 (largest) to max_level.
 
         Note:
-            Uses a simple heuristic:
-            - Calculate size ratio relative to threshold
-            - Map to level inversely (larger = lower level number)
-            - Bold text gets ~0.5 level boost
+            Font size mapping (approximate):
+            - 20pt+ and bold -> H1
+            - 18-20pt and bold -> H2
+            - 16-18pt and bold -> H3
+            - 14-16pt and bold -> H4
+            - 13-14pt and bold -> H5
+            - threshold+ -> H6 or adjust based on ratio
         """
-        # Calculate how much larger than threshold
-        size_ratio = font_size / self.threshold
-
-        # Map ratio to level (larger = lower level number)
-        # Ratio 2.0+ -> H1, 1.5-2.0 -> H2, etc.
-        if size_ratio >= 2.0:
-            level = 1
-        elif size_ratio >= 1.7:
-            level = 2
-        elif size_ratio >= 1.4:
-            level = 3
-        elif size_ratio >= 1.2:
-            level = 4
-        elif size_ratio >= 1.1:
-            level = 5
+        # For bold text, use absolute size ranges
+        if is_bold:
+            if font_size >= 21.0:
+                level = 1
+            elif font_size >= 18.5:
+                level = 2
+            elif font_size >= 16.5:
+                level = 3
+            elif font_size >= 14.8:
+                level = 4
+            elif font_size >= 13.2:
+                level = 5
+            else:
+                level = 6
         else:
-            level = 6
-
-        # Bold text gets slight priority (reduce level by 1)
-        if is_bold and level > 1:
-            level -= 1
+            # Non-bold large text, use ratio-based approach
+            size_ratio = font_size / self.threshold
+            if size_ratio >= 2.0:
+                level = 1
+            elif size_ratio >= 1.7:
+                level = 2
+            elif size_ratio >= 1.4:
+                level = 3
+            elif size_ratio >= 1.2:
+                level = 4
+            else:
+                level = 5
 
         # Ensure within max_level
         level = min(level, self.max_level)

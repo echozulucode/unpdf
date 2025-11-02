@@ -98,7 +98,7 @@ def convert_pdf(
 
     spans = extract_text_with_metadata(pdf_path, page_numbers=page_numbers)
 
-    # Extract tables if enabled
+    # Extract tables if enabled (with position info)
     table_elements = []
     if extract_tables:
         try:
@@ -114,8 +114,14 @@ def convert_pdf(
                     if page_numbers
                     else pdf.pages
                 )
-                for page in pages_to_process:
+                page_num_offset = page_numbers[0] if page_numbers else 1
+                for page_idx, page in enumerate(pages_to_process):
                     page_tables = table_processor.extract_tables(page)
+                    # Add page number to each table for proper ordering
+                    for table in page_tables:
+                        # Store y0 from bbox for vertical positioning (y increases downward in PDF)
+                        table.y0 = table.bbox[1] if table.bbox else 0.0
+                        table.page_number = page_num_offset + page_idx
                     table_elements.extend(page_tables)
 
             logger.info(f"Extracted {len(table_elements)} table(s)")
@@ -148,14 +154,21 @@ def convert_pdf(
         for span in spans:
             # Process in priority order (most specific first):
             # 1. Code (monospace fonts)
-            # 2. Lists (bullet/number markers)
-            # 3. Blockquotes (large indents)
-            # 4. Headings (large fonts)
+            # 2. Headings (large/bold fonts) - must be before lists
+            # 3. Lists (bullet/number markers)
+            # 4. Blockquotes (large indents)
             # 5. Paragraphs (default)
 
             code_result = code_processor.process(span)
             if code_result.__class__.__name__ != "ParagraphElement":
                 elements.append(code_result)
+                continue
+
+            heading_result = heading_processor.process(span)
+            if heading_result.__class__.__name__ != "ParagraphElement":
+                elements.append(heading_result)  # type: ignore[arg-type]
+                # Update list processor context when we hit a heading
+                list_processor.update_context(span["text"])
                 continue
 
             list_result = list_processor.process(span)
@@ -168,11 +181,66 @@ def convert_pdf(
                 elements.append(quote_result)  # type: ignore[arg-type]
                 continue
 
-            heading_result = heading_processor.process(span)
+            # If nothing else matched, it's a paragraph
             elements.append(heading_result)  # type: ignore[arg-type]
 
-        # Add tables to elements
-        elements.extend(table_elements)  # type: ignore[arg-type]
+        # Merge tables into elements at correct positions
+        # Tables should appear in reading order based on page and y-position
+        if table_elements:
+            # Filter out text elements that overlap with table bounding boxes
+            # (to avoid duplicate content - pdfplumber extracts table cells as both text and tables)
+            def overlaps_table(elem, tables):
+                """Check if element overlaps with any table bounding box."""
+                if not hasattr(elem, "y0") or not hasattr(elem, "page_number"):
+                    return False
+
+                elem_page = elem.page_number
+                elem_y0 = elem.y0
+
+                # Check against all tables on same page
+                for table in tables:
+                    if table.page_number != elem_page:
+                        continue
+
+                    # Table bbox is (x0, y0, x1, y1)
+                    # Check if element's y0 falls within table's vertical range
+                    table_y0 = table.bbox[1]  # bottom
+                    table_y1 = table.bbox[3]  # top
+
+                    # Add small margin (5 points) to avoid edge cases
+                    if table_y0 - 5 <= elem_y0 <= table_y1 + 5:
+                        return True
+
+                return False
+
+            # Filter out overlapping text elements
+            filtered_elements = [
+                elem for elem in elements if not overlaps_table(elem, table_elements)
+            ]
+
+            # Create a combined list with position info
+            all_elements = []
+
+            for elem in filtered_elements:
+                # Add position info for text elements
+                if hasattr(elem, "y0"):
+                    all_elements.append((elem.page_number, elem.y0, "text", elem))
+                else:
+                    # Fallback if no position info
+                    all_elements.append((1, 0, "text", elem))
+
+            for table in table_elements:
+                # Tables already have page_number and y0 from extraction
+                all_elements.append((table.page_number, table.y0, "table", table))
+
+            # Sort by page, then by y-position (descending, since higher y0 is at top of page)
+            all_elements.sort(key=lambda x: (x[0], -x[1]))
+
+            # Extract just the elements
+            elements = [elem for _, _, _, elem in all_elements]
+        else:
+            # Just add tables at the end if no position info
+            elements.extend(table_elements)  # type: ignore[arg-type]
 
         # Phase 3: Render elements to Markdown
         from unpdf.renderers.markdown import render_elements_to_markdown

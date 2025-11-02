@@ -148,10 +148,12 @@ class CodeProcessor:
         """
         text = span["text"]
         font_family = span.get("font_family", "")
+        y0 = span.get("y0", 0.0)
+        page_number = span.get("page_number", 1)
 
         # Check if font is monospace
         if not self._is_monospace_font(font_family):
-            return ParagraphElement(text=text)
+            return ParagraphElement(text=text, y0=y0, page_number=page_number)
 
         # Determine if block or inline based on length
         if len(text) >= self.block_threshold:
@@ -160,10 +162,12 @@ class CodeProcessor:
             logger.debug(
                 f"Detected code block: '{text[:30]}...' (lang={language or 'none'})"
             )
-            return CodeBlockElement(text=text, language=language)
+            return CodeBlockElement(
+                text=text, language=language, y0=y0, page_number=page_number
+            )
         else:
             logger.debug(f"Detected inline code: '{text}'")
-            return InlineCodeElement(text=text)
+            return InlineCodeElement(text=text, y0=y0, page_number=page_number)
 
     def _is_monospace_font(self, font_name: str) -> bool:
         """Check if font name indicates monospace font.

@@ -27,6 +27,8 @@ class TableElement:
         rows: List of rows, where each row is a list of cell values.
         has_header: Whether the first row should be treated as a header.
         bbox: Bounding box (x0, y0, x1, y1) of the table in the PDF.
+        y0: Vertical position for ordering. Defaults to bbox[1].
+        page_number: Page number where table appears. Defaults to 1.
 
     Example:
         >>> table = TableElement(
@@ -40,6 +42,8 @@ class TableElement:
     rows: list[list[str]]
     has_header: bool = True
     bbox: tuple[float, float, float, float] = (0, 0, 0, 0)
+    y0: float = 0.0
+    page_number: int = 1
 
     def to_markdown(self) -> str:
         """Convert table to Markdown pipe table format.
@@ -142,12 +146,17 @@ class TableProcessor:
         self,
         table_settings: dict[str, Any] | None = None,
         min_words_in_table: int = 2,
+        max_table_width_ratio: float = 0.95,
+        min_columns: int = 2,
     ) -> None:
         """Initialize table processor.
 
         Args:
             table_settings: Optional pdfplumber table settings override.
             min_words_in_table: Minimum words required to consider as table.
+            max_table_width_ratio: Maximum width ratio (table_width/page_width) to avoid
+                detecting full-page content as a table. Default: 0.95 (95% of page).
+            min_columns: Minimum number of columns for a valid table. Default: 2.
 
         Example:
             >>> processor = TableProcessor(
@@ -157,12 +166,17 @@ class TableProcessor:
         """
         # Default table detection settings
         self.table_settings = table_settings or {
-            "vertical_strategy": "lines_strict",
-            "horizontal_strategy": "lines_strict",
+            "vertical_strategy": "lines",
+            "horizontal_strategy": "lines",
             "intersection_tolerance": 3,
-            "min_words_vertical": 3,
+            "min_words_vertical": 2,
+            "snap_tolerance": 3,
+            "join_tolerance": 3,
+            "edge_min_length": 3,
         }
         self.min_words_in_table = min_words_in_table
+        self.max_table_width_ratio = max_table_width_ratio
+        self.min_columns = min_columns
 
         logger.debug(f"TableProcessor initialized with settings: {self.table_settings}")
 
@@ -184,7 +198,7 @@ class TableProcessor:
             2
         """
         try:
-            # First try strict line-based detection
+            # First try line-based detection (for bordered tables)
             tables = page.find_tables(table_settings=self.table_settings)
 
             if not tables:
@@ -194,16 +208,35 @@ class TableProcessor:
                     "horizontal_strategy": "text",
                     "intersection_tolerance": 5,
                     "min_words_vertical": 2,
+                    "snap_tolerance": 3,
                 }
                 tables = page.find_tables(table_settings=relaxed_settings)
                 logger.debug("Using relaxed (text-based) table detection")
 
+            page_width = page.width
             table_elements = []
+
             for table in tables:
                 extracted = table.extract()
 
                 # Filter out empty or too-small tables
                 if not extracted or len(extracted) < 2:
+                    logger.debug("Skipping table: too few rows")
+                    continue
+
+                # Check column count
+                max_cols = max(len(row) for row in extracted)
+                if max_cols < self.min_columns:
+                    logger.debug(f"Skipping table: only {max_cols} column(s)")
+                    continue
+
+                # Filter out full-page tables (likely false positives)
+                table_width = table.bbox[2] - table.bbox[0]
+                width_ratio = table_width / page_width
+                if width_ratio > self.max_table_width_ratio:
+                    logger.debug(
+                        f"Skipping table: too wide ({width_ratio:.2%} of page width)"
+                    )
                     continue
 
                 # Check if table has enough content
@@ -211,15 +244,46 @@ class TableProcessor:
                     len(str(cell).split()) for row in extracted for cell in row if cell
                 )
                 if total_words < self.min_words_in_table:
-                    logger.debug(f"Skipping small table with {total_words} words")
+                    logger.debug(f"Skipping table: only {total_words} word(s)")
                     continue
 
-                # Create TableElement
-                # Clean cells: None -> empty string
+                # Clean cells: None -> empty string, strip whitespace
                 cleaned_rows = [
                     [str(cell).strip() if cell else "" for cell in row]
                     for row in extracted
                 ]
+
+                # Filter out tables with all empty cells (except header)
+                non_empty_cells = sum(
+                    1
+                    for row in cleaned_rows[1:]
+                    for cell in row
+                    if cell and len(cell.strip()) > 0
+                )
+                if non_empty_cells == 0:
+                    logger.debug("Skipping table: no content in data rows")
+                    continue
+
+                # Filter out tables with too many empty cells (likely false positives)
+                total_cells = sum(len(row) for row in cleaned_rows)
+                empty_cell_ratio = (
+                    1.0 - (non_empty_cells / total_cells) if total_cells > 0 else 1.0
+                )
+                if empty_cell_ratio > 0.6:  # More than 60% empty cells
+                    logger.debug(
+                        f"Skipping table: too many empty cells ({empty_cell_ratio:.1%})"
+                    )
+                    continue
+
+                # Filter out tables where cells are too short (likely broken text)
+                avg_cell_length = sum(
+                    len(cell) for row in cleaned_rows for cell in row if cell
+                ) / max(non_empty_cells, 1)
+                if avg_cell_length < 2:  # Average cell has less than 2 characters
+                    logger.debug(
+                        f"Skipping table: cells too short (avg {avg_cell_length:.1f} chars)"
+                    )
+                    continue
 
                 table_element = TableElement(
                     rows=cleaned_rows,
@@ -228,7 +292,7 @@ class TableProcessor:
                 )
                 table_elements.append(table_element)
 
-            logger.info(f"Extracted {len(table_elements)} tables from page")
+            logger.info(f"Extracted {len(table_elements)} table(s) from page")
             return table_elements
 
         except Exception as e:
