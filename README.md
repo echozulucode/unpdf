@@ -96,15 +96,16 @@ with open("output.md", "w") as f:
 | Text extraction | ✅ | Preserves paragraphs, spacing |
 | **Bold/Italic** | ✅ | Font metadata detection |
 | Headings | ✅ | Font-size based (configurable) |
-| Lists | ✅ | Bullets and numbered |
-| Code blocks | ✅ | Monospace font detection |
-| Tables | ✅ | Pipe-table format |
-| Images | ✅ | Extracted and referenced |
+| Lists | ✅ | Bullets, numbered, nested (up to 5 levels) |
+| Code blocks | ✅ | Monospace font detection + language inference |
+| Tables | ✅ | Pipe-table format with header detection |
+| Images | ✅ | Extracted with caption detection |
 | Hyperlinks | ✅ | Preserved as `[text](url)` |
-| Blockquotes | ⏳ | Coming in v1.0 |
-| Footnotes | ❌ | Not planned for v1 |
+| Blockquotes | ✅ | Indentation-based detection |
+| Footnotes | ⚠️ | Detected as regular text |
 | Equations | ❌ | Use Marker instead |
 | Forms | ❌ | Use Marker instead |
+| Multi-column | ⚠️ | Limited support (reading order may vary) |
 
 ---
 
@@ -216,28 +217,34 @@ Contributions welcome! See [AGENTS.md](AGENTS.md) for development guidelines.
 
 ## Roadmap
 
-See [docs/ai/plan-001-implementation.md](docs/ai/plan-001-implementation.md) for detailed 11-week implementation plan.
+See [docs/ai/plan-001-implementation.md](docs/ai/plan-001-implementation.md) for detailed implementation plan.
 
-### v1.0 (Current - Weeks 1-11)
-- ✅ Basic text extraction
-- ✅ Font style detection
-- ✅ Heading detection
-- ⏳ List detection
-- ⏳ Code blocks
-- ⏳ Tables
-- ⏳ Images & links
+### v1.0 (Current - Phases 1-8 Complete)
+- ✅ Basic text extraction with metadata
+- ✅ Font style detection (bold, italic)
+- ✅ Heading detection (font-size based)
+- ✅ List detection (bullets, numbered, nested)
+- ✅ Code blocks (monospace detection)
+- ✅ Tables (pdfplumber integration)
+- ✅ Images & links extraction
+- ✅ CLI with advanced features
+- ✅ Comprehensive test suite (172 tests, 96% coverage)
+
+**Status**: Documentation & polish phase (Phase 9)
 
 ### v1.1 (Future)
-- Plugin system
-- Configuration file support
+- Plugin system for custom processors
+- Configuration file support (YAML)
 - Streaming API for large PDFs
 - Performance optimizations
+- Better column layout handling
 
 ### v2.0 (Future)
-- Optional OCR plugin
-- Watch mode (auto-convert)
+- Optional OCR plugin (keep base lightweight)
+- Watch mode (auto-convert on changes)
 - VS Code extension
-- GitHub Action
+- GitHub Action for CI/CD
+- HTML and reStructuredText output formats
 
 ---
 
@@ -257,6 +264,45 @@ Built with:
 - [camelot-py](https://github.com/camelot-dev/camelot) - MIT license (optional)
 
 Inspired by the need for a truly open-source PDF converter.
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Headings not detected?**
+```bash
+# Lower the threshold (more aggressive)
+unpdf document.pdf --heading-ratio 1.1
+```
+
+**Too many headings?**
+```bash
+# Raise the threshold (more conservative)
+unpdf document.pdf --heading-ratio 1.5
+```
+
+**Code blocks incorrectly detected?**
+```bash
+# Disable code block detection
+unpdf document.pdf --no-code-blocks
+```
+
+**Tables not appearing?**
+```bash
+# Ensure table support is installed
+pip install unpdf[tables]
+```
+
+**Memory issues with large PDFs?**
+```bash
+# Process in batches
+unpdf large.pdf --pages 1-50 -o part1.md
+unpdf large.pdf --pages 51-100 -o part2.md
+```
+
+For detailed troubleshooting, see [docs/USER_GUIDE.md](docs/USER_GUIDE.md#troubleshooting).
 
 ---
 

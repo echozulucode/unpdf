@@ -1,37 +1,55 @@
 # Plan 002: Bug Fixes for Obsidian PDF Conversion Issues
 
-**Status**: In Progress (Phase 1-8 Complete, Phase 9 Pending)  
+**Status**: In Progress (Phase 1-8 Complete, Phase 9 Steps 1-4 Complete)  
 **Created**: 2025-11-02  
-**Updated**: 2025-11-02  
+**Updated**: 2025-11-03 00:39 UTC  
 **Priority**: High
 
 ## Problem Summary
 
 Testing with example-obsidian revealed multiple critical issues in the PDF-to-Markdown conversion:
 
-### Issues Identified (Detailed Analysis)
+### Issues Identified (Reanalysis as of 2025-11-02 23:53 UTC)
 
-1. **Frontmatter**: YAML frontmatter completely missing from output
-2. **Header Section Issues**: 
-   - Inline code within text (backticks around `#`) converted to multi-line with spurious `>>>` blockquote symbols
-3. **List Problems**:
-   - Unordered list appears in WRONG SECTION (after "Ordered List" header instead of under "Unordered List")
-   - Ordered list items all numbered as "1." instead of 1, 2, 3, 4
-   - Ordered list missing item #4 ("Deploy to production")
-   - Checklist content SPLIT across file (header at line 39, content at line 71-74)
-   - Checklist items missing `[x]` and `[ ]` checkbox syntax
-4. **Table Issues**:
-   - Tables appear at BOTTOM of file instead of their correct middle position
-   - Table headers incorrectly detected as H6 headings
-   - Content ordering completely disrupted by table misplacement
-5. **Code Block Failures**:
-   - All fenced code blocks (Python, JSON, Bash) converted to inline code with backticks
-   - Code blocks appear in WRONG LOCATIONS (mixed with checklist content)
-   - Triple-backtick fence markers not preserved
-6. **Blockquote Issues**: 
-   - Blockquotes rendered as plain text without `>` prefix
-7. **Horizontal Rules**: All `---` separators missing from output
-8. **Links**: Hyperlinks stripped to plain text (lost URL)
+**FIXED (Phases 1-8):**
+1. ✅ Text spacing issues
+2. ✅ Heading level detection
+3. ✅ Element ordering and table placement
+4. ✅ Table header false positives (H6)
+5. ✅ Code block detection and fenced blocks
+6. ✅ List structure and nesting
+7. ✅ Checkbox detection ([x] and [ ])
+8. ✅ Blockquote rendering
+9. ✅ Spurious >>> symbols eliminated
+
+**REMAINING ISSUES (Phase 9):**
+1. ❌ **YAML Frontmatter Missing**: Lines 1-5 completely absent from output
+   - Original has: `---\ntitle: "..."\nauthor: "..."\ndate: ...\n---`
+   - Output: Missing entirely
+   
+2. ❌ **Checkbox Artifacts in Headers Section**: Lines 8-10 contain spurious checkbox syntax
+   - Expected: `You can use one to six # symbols to create headers.`
+   - Got: `` `[ ] #  `\n- [ ] You can use one to six\n- [ ] symbols to create headers.``
+   - Root cause: Inline code with checkbox-like content incorrectly detected as checklist
+   
+3. ❌ **Ordered List Numbering**: Lines 36-39 all numbered "1." instead of sequential
+   - Note: "1." for all items IS valid Markdown (auto-numbered by renderers)
+   - But original has explicit 1, 2, 3, 4 numbering
+   - Decision needed: Keep auto-numbering or match original?
+   
+4. ❌ **Print Statement Outside Code Block**: Line 82
+   - `print(greet("Markdown"))` should be INSIDE the ```python block
+   - Currently appears as inline code after the block ends
+   
+5. ❌ **JSON Missing Language Identifier**: Line 86
+   - Should be ` ```json` not just ` ``` `
+   
+6. ❌ **Hyperlinks Lost**: Line 119
+   - Expected: `[Visit GitHub](https://github.com/)`
+   - Got: `Visit GitHub` (plain text)
+   
+7. ❌ **Horizontal Rule Missing**: Before "## 7. Links and Images"
+   - Original has `---` separator, output missing it
 
 ## Root Causes
 
@@ -123,30 +141,52 @@ Testing with example-obsidian revealed multiple critical issues in the PDF-to-Ma
 - [x] Spurious `>>>` symbols eliminated
 - **KNOWN ISSUE**: Some inline code spans with extreme indentation (x0>150) now detected as checklist items - needs further investigation
 
-### Phase 9: Additional Features
-- [ ] Add frontmatter detection/preservation (YAML between ---) 
-- [ ] Add horizontal rule detection (--- separators)
-- [ ] Preserve hyperlinks [text](url)
-- [ ] Add image reference support
+### Phase 9: Remaining Critical Fixes
+- [x] **Step 9.1**: Fix checkbox false positives in Headers section (inline code with `#` detected as checklist)
+  - **FIXED**: Added monospace font detection + left margin check + horizontal distance check
+  - **FIXED**: Set `has_checkbox` and `checkbox_checked` flags when annotating
+  - **FIXED**: ListProcessor now only treats text as checkbox if `has_checkbox=True`
+  - Remaining issue: Text spans not merged into paragraphs (separate issue)
+- [x] **Step 9.2**: Fix code block boundary detection (print statement should be inside Python block)
+  - **FIXED**: Increased code block grouping threshold from 20pt to 40pt to handle blank lines
+- [x] **Step 9.3**: Fix JSON code block language identifier detection
+  - **FIXED**: Added JSON detection based on `{}` or `[]` with quotes and colons
+- [x] **Step 9.4**: Add hyperlink preservation [text](url)
+  - **FIXED**: Extract link annotations from PDF and annotate spans with URLs
+  - **FIXED**: Created LinkElement class and integrate into processing pipeline
+- [x] **Step 9.5**: Add horizontal rule detection (--- separators)
+  - **FIXED**: Created HorizontalRuleProcessor to detect horizontal rules from PDF drawings
+  - **FIXED**: Detect long thin rectangles (width > 400pt, height < 3pt) as horizontal rules
+  - **FIXED**: Integrate HR elements into position-based element sorting
+  - **RESULT**: 7 horizontal rules correctly detected and placed in output
+- [ ] **Step 9.6**: Add YAML frontmatter detection/preservation
+- [ ] **Step 9.7**: Decide on ordered list numbering strategy (auto vs explicit)
+- [ ] **Step 9.8**: Merge consecutive paragraph spans on same line into single paragraph
 
 ## Success Criteria
 
-- [x] Headings match original levels (H1 = H1, H2 = H2, etc.) - DONE (Phase 2)
-- [x] All text has proper spacing between words - DONE (Phase 1)
-- [x] Content sections appear in correct order (not scrambled by table extraction) - DONE (Phase 3)
-- [x] Tables render correctly at their proper positions - DONE (Phase 3)
-- [x] No table headers detected as H6 headings - DONE (Phase 4)
-- [x] Fenced code blocks (```) preserved with language identifiers - DONE (Phase 5)
-- [x] Inline code stays inline, not split into blocks - DONE (Phase 5)
-- [x] Lists maintain correct numbering (using "1." markdown standard) - DONE (Phase 6)
-- [x] Unordered lists appear under correct headers - DONE (Phase 6)
-- [x] Nested lists render with proper indentation - DONE (Phase 6)
-- [x] Checkbox syntax preserved by detecting vector drawings - DONE (Phase 7)
-- [x] Blockquotes render with proper > prefix - DONE (Phase 8)
-- [x] No spurious >>> symbols in text - DONE (Phase 8)
-- [ ] Horizontal rules (---) preserved - PENDING (Phase 9)
-- [ ] Frontmatter preserved if present - PENDING (Phase 9)
-- [ ] Hyperlinks preserved as [text](url) - PENDING (Phase 9)
+✅ **COMPLETED:**
+- [x] Headings match original levels (H1 = H1, H2 = H2, etc.) - Phase 2
+- [x] All text has proper spacing between words - Phase 1
+- [x] Content sections appear in correct order - Phase 3
+- [x] Tables render correctly at proper positions - Phase 3
+- [x] No table headers detected as H6 headings - Phase 4
+- [x] Fenced code blocks (```) with language identifiers - Phase 5
+- [x] Inline code stays inline, not split into blocks - Phase 5
+- [x] Lists maintain structure and numbering - Phase 6
+- [x] Nested lists with proper indentation - Phase 6
+- [x] Checkbox syntax preserved ([x] and [ ]) - Phase 7
+- [x] Blockquotes render with > prefix - Phase 8
+- [x] No spurious >>> symbols - Phase 8
+
+❌ **REMAINING (Phase 9):**
+- [x] No checkbox false positives in non-checklist content - Step 9.1 ✅
+- [x] Code block boundaries correctly detected - Step 9.2 ✅
+- [x] JSON blocks have language identifier - Step 9.3 ✅
+- [x] Hyperlinks preserved as [text](url) - Step 9.4 ✅
+- [x] Horizontal rules (---) preserved - Step 9.5 ✅
+- [ ] YAML frontmatter preserved - Step 9.6
+- [ ] Text spans merged into paragraphs - Step 9.8
 
 ## Testing
 

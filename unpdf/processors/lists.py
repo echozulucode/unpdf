@@ -149,12 +149,14 @@ class ListProcessor:
         indent_level = self._calculate_indent_level(x0)
 
         # Check for checkbox list items first (e.g., "[ ] Task" or "[x] Done")
+        # Only treat as checkbox if the span was annotated by the CheckboxDetector
+        # (to avoid false positives on literal "[ ]" text in demonstrations)
         checkbox_match = self.checkbox_pattern.match(text)
-        if checkbox_match:
+        has_checkbox = span.get("has_checkbox", False)
+        if checkbox_match and has_checkbox:
             cleaned_text = text[checkbox_match.end() :].strip()
-            checkbox_marker = checkbox_match.group(1)
-            # Add checkbox back to text in markdown format
-            checked = checkbox_marker.lower() == "x"
+            # Use the checkbox state from the detector, not the text marker
+            checked = span.get("checkbox_checked", False)
             list_text = f"[{'x' if checked else ' '}] {cleaned_text}"
             logger.debug(f"Detected checkbox item: '{list_text[:30]}...'")
             return ListItemElement(

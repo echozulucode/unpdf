@@ -108,7 +108,10 @@ def test_blockquote_processor_remove_quote_marks_method():
 def test_blockquote_processor_max_nesting():
     """Test that nesting is capped at 5 levels."""
     processor = BlockquoteProcessor(
-        base_indent=72.0, quote_threshold=40.0, nested_threshold=20.0
+        base_indent=72.0,
+        quote_threshold=40.0,
+        nested_threshold=20.0,
+        max_indent=250.0,  # Allow deep indents for testing
     )
 
     # Very deep indent (should cap at level 5)

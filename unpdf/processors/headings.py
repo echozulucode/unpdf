@@ -85,6 +85,31 @@ class ParagraphElement(Element):
         return self.text
 
 
+@dataclass
+class LinkElement(Element):
+    """Hyperlink element.
+
+    Attributes:
+        text: Link text (anchor text).
+        url: URL target.
+    """
+
+    url: str = ""
+
+    def to_markdown(self) -> str:
+        """Convert link to Markdown.
+
+        Returns:
+            Markdown link [text](url).
+
+        Example:
+            >>> link = LinkElement("GitHub", url="https://github.com/")
+            >>> link.to_markdown()
+            '[GitHub](https://github.com/)'
+        """
+        return f"[{self.text}]({self.url})"
+
+
 class HeadingProcessor:
     """Process text spans and detect headings based on font size.
 

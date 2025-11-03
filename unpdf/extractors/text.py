@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import pdfplumber
-import pymupdf
+import pymupdf  # type: ignore[import-untyped]
 
 from unpdf.processors.checkboxes import CheckboxDetector
 

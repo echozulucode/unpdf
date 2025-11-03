@@ -17,7 +17,12 @@ Example:
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from unpdf.processors.code import CodeBlockElement, InlineCodeElement
+    from unpdf.processors.headings import ParagraphElement
+    from unpdf.processors.table import TableElement
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +37,14 @@ def _group_code_blocks(elements: list[Any]) -> list[Any]:
         List with consecutive inline code elements merged into CodeBlockElement instances.
     """
     from unpdf.processors.code import CodeBlockElement, InlineCodeElement
+    from unpdf.processors.headings import ParagraphElement
 
     if not elements:
         return elements
 
-    grouped = []
-    code_buffer = []
-    prev_y0 = None
+    grouped: list[CodeBlockElement | InlineCodeElement | ParagraphElement] = []
+    code_buffer: list[InlineCodeElement] = []
+    prev_y0: float | None = None
     prev_page = None
 
     for elem in elements:
@@ -47,8 +53,8 @@ def _group_code_blocks(elements: list[Any]) -> list[Any]:
             current_y0 = getattr(elem, "y0", 0)
             current_page = getattr(elem, "page_number", 1)
 
-            if code_buffer and (
-                prev_page != current_page or abs(current_y0 - prev_y0) > 20
+            if code_buffer and prev_y0 is not None and (
+                prev_page != current_page or abs(current_y0 - prev_y0) > 40
             ):
                 # Gap too large or different page - flush buffer as code block
                 if len(code_buffer) >= 3:  # At least 3 lines for a code block
@@ -195,6 +201,77 @@ def convert_pdf(
 
     spans = extract_text_with_metadata(pdf_path, page_numbers=page_numbers)
 
+    # Extract and annotate links
+    try:
+        import pdfplumber
+
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages, start=1):
+                if hasattr(page, "annots") and page.annots:
+                    for annot in page.annots:
+                        url = annot.get("uri")
+                        if not url:
+                            continue
+
+                        # Get annotation bounding box
+                        x0 = annot.get("x0", 0)
+                        y0 = annot.get("y0", 0)
+                        x1 = annot.get("x1", 0)
+                        y1 = annot.get("y1", 0)
+
+                        # Find overlapping text spans
+                        for span in spans:
+                            if span["page_number"] != page_num:
+                                continue
+
+                            # Check if span overlaps with link annotation
+                            span_x0 = span["x0"]
+                            span_y0 = span["y0"]
+                            span_x1 = span["x1"]
+                            span_y1 = span["y1"]
+
+                            # Check for overlap
+                            if (
+                                span_x0 <= x1
+                                and span_x1 >= x0
+                                and span_y0 <= y1
+                                and span_y1 >= y0
+                            ):
+                                # Annotate span with URL
+                                span["link_url"] = url
+                                logger.debug(
+                                    f"Annotated span '{span['text']}' with link {url}"
+                                )
+    except Exception as e:
+        logger.warning(f"Failed to extract links: {e}")
+
+    # Extract horizontal rules from PDF drawings
+    hr_elements: list[Any] = []
+    try:
+        import pymupdf  # type: ignore[import-untyped]
+
+        from unpdf.processors.horizontal_rule import HorizontalRuleProcessor
+
+        hr_processor = HorizontalRuleProcessor()
+
+        doc = pymupdf.open(pdf_path)
+        pages_to_process = (
+            [doc[i - 1] for i in page_numbers if i <= len(doc)]
+            if page_numbers
+            else doc
+        )
+        page_num_offset = page_numbers[0] if page_numbers else 1
+        for page_idx, page in enumerate(pages_to_process):
+            drawings = page.get_drawings()
+            page_hrs = hr_processor.detect_horizontal_rules(
+                drawings, page_num_offset + page_idx
+            )
+            hr_elements.extend(page_hrs)
+
+        logger.info(f"Detected {len(hr_elements)} horizontal rule(s)")
+    except Exception as e:
+        logger.warning(f"Failed to extract horizontal rules: {e}")
+
     # Extract tables if enabled (with position info)
     table_elements = []
     if extract_tables:
@@ -280,18 +357,31 @@ def convert_pdf(
                 elements.append(quote_result)  # type: ignore[arg-type]
                 continue
 
+            # Check if span has a link annotation
+            if span.get("link_url"):
+                from unpdf.processors.headings import LinkElement
+
+                link_elem = LinkElement(
+                    text=span["text"],
+                    url=span["link_url"],
+                    y0=span.get("y0", 0),
+                    page_number=span.get("page_number", 1),
+                )
+                elements.append(link_elem)  # type: ignore[arg-type]
+                continue
+
             # If nothing else matched, it's a paragraph
             elements.append(heading_result)  # type: ignore[arg-type]
 
         # Group consecutive inline code elements into code blocks
         elements = _group_code_blocks(elements)
 
-        # Merge tables into elements at correct positions
-        # Tables should appear in reading order based on page and y-position
-        if table_elements:
+        # Merge tables and horizontal rules into elements at correct positions
+        # All should appear in reading order based on page and y-position
+        if table_elements or hr_elements:
             # Filter out text elements that overlap with table bounding boxes
             # (to avoid duplicate content - pdfplumber extracts table cells as both text and tables)
-            def overlaps_table(elem, tables):
+            def overlaps_table(elem: Any, tables: list[Any]) -> bool:
                 """Check if element overlaps with any table bounding box."""
                 if not hasattr(elem, "y0") or not hasattr(elem, "page_number"):
                     return False
@@ -321,7 +411,9 @@ def convert_pdf(
             ]
 
             # Create a combined list with position info
-            all_elements = []
+            all_elements: list[
+                tuple[int, float, str, CodeBlockElement | InlineCodeElement | ParagraphElement | TableElement]
+            ] = []
 
             for elem in filtered_elements:
                 # Add position info for text elements
@@ -335,14 +427,19 @@ def convert_pdf(
                 # Tables already have page_number and y0 from extraction
                 all_elements.append((table.page_number, table.y0, "table", table))
 
+            for hr in hr_elements:
+                # Horizontal rules already have page_number and y0
+                all_elements.append((hr.page_number, hr.y0, "hr", hr))
+
             # Sort by page, then by y-position (descending, since higher y0 is at top of page)
             all_elements.sort(key=lambda x: (x[0], -x[1]))
 
             # Extract just the elements
-            elements = [elem for _, _, _, elem in all_elements]
+            elements = [elem for _, _, _, elem in all_elements]  # type: ignore[misc]
         else:
-            # Just add tables at the end if no position info
+            # Just add tables and HRs at the end if no position info
             elements.extend(table_elements)  # type: ignore[arg-type]
+            elements.extend(hr_elements)
 
         # Phase 3: Render elements to Markdown
         from unpdf.renderers.markdown import render_elements_to_markdown

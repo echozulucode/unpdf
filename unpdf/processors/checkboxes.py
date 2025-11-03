@@ -73,6 +73,32 @@ class CheckboxDetector:
         self.checkbox_size_range = size_range or self.CHECKBOX_SIZE_RANGE
         self.vertical_tolerance = vertical_tolerance or self.VERTICAL_TOLERANCE
 
+    def _is_monospace_font(self, font_name: str) -> bool:
+        """Check if font is monospace/code font.
+
+        Args:
+            font_name: Font family name.
+
+        Returns:
+            True if monospace font.
+        """
+        monospace_patterns = [
+            "courier",
+            "consolas",
+            "monaco",
+            "menlo",
+            "cascadia",
+            "roboto mono",
+            "source code",
+            "fira code",
+            "jetbrains mono",
+            "inconsolata",
+            "dejavu sans mono",
+            "ubuntu mono",
+        ]
+        font_lower = font_name.lower()
+        return any(pattern in font_lower for pattern in monospace_patterns)
+
     def detect_checkboxes(self, page: Any) -> list[CheckboxDrawing]:
         """Detect all checkboxes on a PDF page.
 
@@ -135,6 +161,7 @@ class CheckboxDetector:
         for span in annotated_spans:
             # Get span y-center (in pdfplumber coords if page_height provided)
             span_y_center = (span["y0"] + span["y1"]) / 2
+            span_x0 = span["x0"]
 
             for checkbox in checkboxes:
                 # Convert checkbox y-coordinate if needed
@@ -144,11 +171,32 @@ class CheckboxDetector:
                 if page_height:
                     checkbox_y = page_height - checkbox.y
 
-                # Check vertical alignment
-                if abs(checkbox_y - span_y_center) <= self.vertical_tolerance:
+                # Check vertical AND horizontal alignment
+                # Checkbox should be:
+                # 1. Vertically aligned with text (same line)
+                # 2. At left margin (not mid-sentence) - real checkboxes are < 100pts from left
+                # 3. Close to text horizontally (within 30pts)
+                horizontal_distance = abs(checkbox.x - span_x0)
+                is_left_margin = checkbox.x < 100.0
+                if (
+                    abs(checkbox_y - span_y_center) <= self.vertical_tolerance
+                    and horizontal_distance <= 30.0
+                    and is_left_margin
+                ):
+                    # Skip monospace fonts - they're likely inline code demonstrations
+                    # of checkbox syntax, not actual checkboxes
+                    font_family = span.get("font_family", "")
+                    if self._is_monospace_font(font_family):
+                        logger.debug(
+                            f"Skipping checkbox for monospace span: {span['text'][:40]}..."
+                        )
+                        continue
+
                     # Add checkbox marker to beginning of text
                     marker = "[x]" if checkbox.is_checked else "[ ]"
                     span["text"] = f"{marker} {span['text']}"
+                    span["has_checkbox"] = True
+                    span["checkbox_checked"] = checkbox.is_checked
                     logger.debug(
                         f"Added checkbox marker '{marker}' to text at "
                         f"y={span_y_center:.1f}: {span['text'][:40]}..."
@@ -158,8 +206,8 @@ class CheckboxDetector:
         return annotated_spans
 
     def _group_drawings_by_position(
-        self, drawings: list[dict], tolerance: float
-    ) -> list[list[dict]]:
+        self, drawings: list[dict[str, Any]], tolerance: float
+    ) -> list[list[dict[str, Any]]]:
         """Group drawings that are at approximately the same position.
 
         Checkboxes are typically rendered as multiple overlapping shapes.
@@ -171,7 +219,7 @@ class CheckboxDetector:
         Returns:
             List of drawing groups.
         """
-        groups = []
+        groups: list[list[dict[str, Any]]] = []
 
         for drawing in drawings:
             rect = drawing["rect"]
@@ -196,7 +244,7 @@ class CheckboxDetector:
         return groups
 
     def _is_checkbox_group(
-        self, group: list[dict], min_size: float, max_size: float
+        self, group: list[dict[str, Any]], min_size: float, max_size: float
     ) -> bool:
         """Check if a group of drawings looks like a checkbox.
 
@@ -227,7 +275,7 @@ class CheckboxDetector:
 
         return is_square and is_right_size and has_valid_structure
 
-    def _is_checked(self, group: list[dict]) -> bool:
+    def _is_checked(self, group: list[dict[str, Any]]) -> bool:
         """Determine if a checkbox group represents a checked box.
 
         Checked boxes have colored fill and/or checkmark shapes.

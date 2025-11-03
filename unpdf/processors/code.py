@@ -249,6 +249,21 @@ class CodeProcessor:
         ):
             return "javascript"
 
+        # JSON indicators (check before bash to avoid confusion with quotes)
+        if (
+            text.strip().startswith("{")
+            and text.strip().endswith("}")
+            and '"' in text
+            and ":" in text
+        ):
+            return "json"
+        if (
+            text.strip().startswith("[")
+            and text.strip().endswith("]")
+            and ('"' in text or "{" in text)
+        ):
+            return "json"
+
         # Shell/Bash indicators
         if any(
             keyword in text_lower
