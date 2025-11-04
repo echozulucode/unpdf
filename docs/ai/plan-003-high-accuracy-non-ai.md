@@ -168,15 +168,40 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [x] Type checking and linting (100% pass)
 - [x] **Result**: Fast segmentation with multi-column and grid support
 
-### 2.3 RLSA Block Detection
-- [ ] Implement Run Length Smoothing Algorithm
-- [ ] Phase 1: Horizontal smoothing (hsv = 10-50 pixels)
-- [ ] Phase 2: Vertical smoothing (vsv = 3-10 pixels)
-- [ ] Phase 3: Logical AND + additional horizontal smoothing
-- [ ] Derive parameters from document statistics
+### 2.3 RLSA Block Detection ✅
+- [x] Implement Run Length Smoothing Algorithm
+- [x] Phase 1: Horizontal smoothing (hsv = 10-50 pixels)
+- [x] Phase 2: Vertical smoothing (vsv = 3-10 pixels)
+- [x] Phase 3: Logical AND + additional horizontal smoothing
+- [x] Derive parameters from document statistics
   - hsv = f(mean character length)
   - vsv = f(mean line distance)
-- [ ] **Target**: Linear O(n) performance
+- [x] **Target**: Linear O(n) performance ✅ Achieved
+
+### 2.3.1 Block Classification ✅
+- [x] Implement font statistics computation
+  - Body size detection (most common size)
+  - Font size distribution analysis
+  - Monospace ratio calculation
+- [x] Heading detection with size ratios
+  - H1: 2.0-2.5× body
+  - H2: 1.5-1.8× body
+  - H3: 1.2-1.4× body
+  - H4-H6: Size + weight requirements
+- [x] List item pattern detection
+  - Bullet characters (•◦▪‣⁃)
+  - Numbered lists (1. 2. 3.)
+  - Lettered lists (a. b. c.)
+  - Checkboxes (☐☑✓✗)
+- [x] Code block identification
+  - Monospace font detection
+  - Indentation patterns
+  - Code punctuation and keywords
+- [x] Horizontal rule detection
+- [x] Blockquote detection
+- [x] Comprehensive unit tests (25 tests, all passing)
+- [x] Type checking and linting (100% pass)
+- [x] **Result**: 95% code coverage, robust classification
 
 ### 2.4 Docstrum Clustering
 - [ ] Extract connected components from text
@@ -210,14 +235,18 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 
 **Deliverables**:
 - ✅ MVP layout analyzer with column detection
-- XY-Cut segmentation module
-- RLSA block detector
+- ✅ XY-Cut segmentation module
+- ✅ RLSA block detector
+- ✅ Block classifier with semantic type detection
 - Docstrum clustering engine
 - Enhanced whitespace analysis system
 - Hierarchical layout tree
 
 **Tests**:
 - ✅ Unit tests for MVP (16 tests, all passing)
+- ✅ Unit tests for XY-Cut (24 tests, all passing)
+- ✅ Unit tests for RLSA (32 tests, all passing)
+- ✅ Unit tests for Block Classifier (25 tests, all passing)
 - Test on single-column, multi-column layouts
 - Verify handling of skewed text
 - Validate performance (<100ms per page)
@@ -858,8 +887,8 @@ Based on research from:
 
 ## Current Status
 
-**Phase**: Phase 2 In Progress (Step 2.2 Complete ✅)  
-**Next Action**: Continue Phase 2 - Step 2.3 RLSA Block Detection  
+**Phase**: Phase 2 In Progress (Step 2.3.1 Complete ✅)  
+**Next Action**: Continue Phase 2 - Step 2.4 Docstrum Clustering  
 **Last Updated**: 2025-11-04
 
 **Phase 0 Summary**:
@@ -872,7 +901,9 @@ Based on research from:
 **Phase 2 Progress**:
 - ✅ Step 2.1: MVP Layout Analyzer (98% coverage, 16 tests)
 - ✅ Step 2.2: Recursive XY-Cut (13 tests, all passing)
-- ⏭️ Step 2.3: RLSA Block Detection (Next)
+- ✅ Step 2.3: RLSA Block Detection (32 tests, all passing)
+- ✅ Step 2.3.1: Block Classification (25 tests, 95% coverage)
+- ⏭️ Step 2.4: Docstrum Clustering (Next)
 
 **Notes**:
 - This plan builds on existing unpdf foundation
