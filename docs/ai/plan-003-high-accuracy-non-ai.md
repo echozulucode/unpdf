@@ -221,14 +221,17 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [x] Linting with ruff and formatting with black
 - [x] **Result**: 94% code coverage, handles skewed and multi-orientation text
 
-### 2.5 Whitespace Analysis Enhancement
-- [ ] Detect column boundaries (vertical gap >15% page width)
-- [ ] Identify paragraph boundaries (vertical gap >1.5× line height)
-- [ ] Segment sections via large whitespace
-- [ ] Build spatial relationship graph
+### 2.5 Whitespace Analysis Enhancement ✅
+- [x] Detect column boundaries (vertical gap >15% page width)
+- [x] Identify paragraph boundaries (vertical gap >1.5× line height)
+- [x] Segment sections via large whitespace
+- [x] Build spatial relationship graph
   - Up/down (vertical alignment ±5-10 pixels)
   - Left/right (horizontal alignment ±5-10 pixels)
   - Nearest neighbor per direction
+- [x] Comprehensive unit tests (26 tests, all passing)
+- [x] Type checking and linting (100% pass)
+- [x] **Result**: 100% code coverage, robust whitespace analysis
 
 ### 2.6 Hierarchical Layout Tree
 - [ ] Build physical layout tree (blocks → lines → words)
@@ -244,7 +247,7 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - ✅ RLSA block detector
 - ✅ Block classifier with semantic type detection
 - ✅ Docstrum clustering engine (`unpdf/processors/docstrum.py`)
-- Enhanced whitespace analysis system
+- ✅ Whitespace analysis system (`unpdf/processors/whitespace.py`)
 - Hierarchical layout tree
 
 **Tests**:
@@ -893,8 +896,8 @@ Based on research from:
 
 ## Current Status
 
-**Phase**: Phase 2 In Progress (Step 2.3.1 Complete ✅)  
-**Next Action**: Continue Phase 2 - Step 2.4 Docstrum Clustering  
+**Phase**: Phase 2 In Progress (Step 2.5 Complete ✅)  
+**Next Action**: Continue Phase 2 - Step 2.6 Hierarchical Layout Tree  
 **Last Updated**: 2025-11-04
 
 **Phase 0 Summary**:
@@ -909,7 +912,9 @@ Based on research from:
 - ✅ Step 2.2: Recursive XY-Cut (13 tests, all passing)
 - ✅ Step 2.3: RLSA Block Detection (32 tests, all passing)
 - ✅ Step 2.3.1: Block Classification (25 tests, 95% coverage)
-- ⏭️ Step 2.4: Docstrum Clustering (Next)
+- ✅ Step 2.4: Docstrum Clustering (21 tests, 94% coverage)
+- ✅ Step 2.5: Whitespace Analysis (26 tests, 100% coverage)
+- ⏭️ Step 2.6: Hierarchical Layout Tree (Next)
 
 **Notes**:
 - This plan builds on existing unpdf foundation
