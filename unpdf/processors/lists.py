@@ -47,9 +47,9 @@ class ListItemElement(Element):
             '- First'
             >>> item2 = ListItemElement("Second", is_ordered=True, indent_level=1)
             >>> item2.to_markdown()
-            '    1. Second'
+            '  1. Second'
         """
-        indent = "    " * self.indent_level  # 4 spaces per level
+        indent = "  " * self.indent_level  # 2 spaces per level (standard Markdown)
         prefix = "1." if self.is_ordered else "-"
         return f"{indent}{prefix} {self.text}"
 

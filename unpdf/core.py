@@ -293,8 +293,9 @@ def convert_pdf(
                     page_tables = table_processor.extract_tables(page)
                     # Add page number to each table for proper ordering
                     for table in page_tables:
-                        # Store y0 from bbox for vertical positioning (y increases downward in PDF)
-                        table.y0 = table.bbox[1] if table.bbox else 0.0
+                        # Store y1 (top edge) from bbox for vertical positioning
+                        # In PDF coords (y=0 at bottom), y1 is the top of the table
+                        table.y0 = table.bbox[3] if table.bbox else 0.0
                         table.page_number = page_num_offset + page_idx
                     table_elements.extend(page_tables)
 
@@ -439,7 +440,7 @@ def convert_pdf(
                 # Horizontal rules already have page_number and y0
                 all_elements.append((hr.page_number, hr.y0, "hr", hr))
 
-            # Sort by page, then by y-position (descending, since higher y0 is at top of page)
+            # Sort by page, then by y-position (descending, since y=0 is at bottom in PDF coords)
             all_elements.sort(key=lambda x: (x[0], -x[1]))
 
             # Extract just the elements

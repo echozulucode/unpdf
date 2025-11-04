@@ -41,55 +41,44 @@ class HorizontalRuleProcessor:
 
     def __init__(
         self,
-        min_width: float = 400.0,
-        max_height: float = 3.0,
+        min_width: float = 450.0,
+        max_height: float = 2.0,
+        min_spacing_before: float = 10.0,
+        min_spacing_after: float = 10.0,
     ) -> None:
         """Initialize horizontal rule processor.
 
         Args:
-            min_width: Minimum width for horizontal rule (default 400pt).
-            max_height: Maximum height for horizontal rule (default 3pt).
+            min_width: Minimum width for horizontal rule (default 450pt).
+            max_height: Maximum height for horizontal rule (default 2pt).
+            min_spacing_before: Minimum vertical space before HR (default 10pt).
+            min_spacing_after: Minimum vertical space after HR (default 10pt).
         """
         self.min_width = min_width
         self.max_height = max_height
+        self.min_spacing_before = min_spacing_before
+        self.min_spacing_after = min_spacing_after
         logger.debug(
             f"Initialized HorizontalRuleProcessor (min_width={min_width}, max_height={max_height})"
         )
 
     def detect_horizontal_rules(
-        self, drawings: list[dict[str, Any]], page_number: int
+        self, drawings: list[dict[str, Any]], page_number: int, text_blocks: list[Any] = None
     ) -> list[HorizontalRuleElement]:
         """Detect horizontal rules from PDF drawing objects.
 
         Args:
             drawings: List of drawing dictionaries from page.get_drawings().
             page_number: Current page number.
+            text_blocks: Optional list of text blocks to check spacing.
 
         Returns:
             List of HorizontalRuleElement objects.
         """
-        hr_elements = []
-
-        for drawing in drawings:
-            rect = drawing.get("rect")
-            if not rect:
-                continue
-
-            width = rect.x1 - rect.x0
-            height = rect.y1 - rect.y0
-
-            # Horizontal rule criteria:
-            # 1. Wide (spans most of page width)
-            # 2. Very thin (just a line)
-            if width >= self.min_width and height <= self.max_height:
-                hr_elem = HorizontalRuleElement(
-                    text="---",
-                    y0=rect.y0,
-                    page_number=page_number,
-                )
-                hr_elements.append(hr_elem)
-                logger.debug(
-                    f"Detected horizontal rule at page={page_number}, y={rect.y0}"
-                )
-
-        return hr_elements
+        # DISABLED: Horizontal rule detection from drawings is too unreliable
+        # PDF drawing objects include many visual artifacts that aren't semantic HRs
+        # Better approach: detect from text "---" markers in markdown context
+        # or use explicit section separators
+        
+        logger.debug(f"Skipping drawing-based HR detection for page {page_number}")
+        return []
