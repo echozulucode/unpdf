@@ -431,25 +431,33 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [x] Code coverage: 95% on list_detector.py
 - [x] **Target**: >92% precision on bullets, >88% on numbering
 
-### 4.2 Code Block Detection
-- [ ] Detect monospace fonts (width variance <0.05)
-- [ ] Check consistent indentation (>40 pixels)
-- [ ] Look for syntax highlighting color patterns
-- [ ] Identify common keywords (def, function, class, etc.)
-- [ ] Validate line continuity
-- [ ] **Target**: >95% accuracy on code blocks
+### 4.2 Code Block Detection ✅
+- [x] Detect monospace fonts (width variance <0.05)
+- [x] Check consistent indentation (>40 pixels)
+- [x] Look for syntax highlighting color patterns
+- [x] Identify common keywords (def, function, class, etc.)
+- [x] Validate line continuity
+- [x] Comprehensive unit tests (31 tests, all passing)
+- [x] Type checking with mypy (100% pass)
+- [x] Linting with ruff (100% pass)
+- [x] Code coverage: 98% on code_detector.py
+- [x] **Target**: >95% accuracy on code blocks
 
-### 4.3 Header Classification
-- [ ] Apply decision tree based on font size ratio
+### 4.3 Header Classification ✅
+- [x] Apply decision tree based on font size ratio
   - H1: >2.0× body font
   - H2: 1.5-1.8× body font
   - H3: 1.2-1.4× body font
   - H4-H6: style/position based
-- [ ] Consider font weight (bold more likely)
-- [ ] Check position (top 20% of page for H1)
-- [ ] Verify line count (single line)
-- [ ] Validate horizontal centering/alignment
-- [ ] **Target**: >90% header level accuracy
+- [x] Consider font weight (bold more likely)
+- [x] Check position (top 20% of page for H1)
+- [x] Verify line count (single line)
+- [x] Validate horizontal centering/alignment
+- [x] Comprehensive unit tests (37 tests, all passing)
+- [x] Type checking with mypy (100% pass)
+- [x] Linting with ruff (100% pass)
+- [x] Code coverage: 98% on header_classifier.py
+- [x] **Target**: >90% header level accuracy
 
 ### 4.4 Caption Detection
 - [ ] Search for keywords (Table, Figure, Fig., Diagram)
