@@ -459,13 +459,18 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [x] Code coverage: 98% on header_classifier.py
 - [x] **Target**: >90% header level accuracy
 
-### 4.4 Caption Detection
-- [ ] Search for keywords (Table, Figure, Fig., Diagram)
-- [ ] Check proximity to images/tables (<50 pixels)
-- [ ] Verify horizontal overlap (>70%)
-- [ ] Detect numbering (Table 1, Figure 2.3)
-- [ ] Link caption to referenced element
-- [ ] **Target**: >85% caption linkage accuracy
+### 4.4 Caption Detection ✅
+- [x] Search for keywords (Table, Figure, Fig., Diagram)
+- [x] Check proximity to images/tables (<50 pixels)
+- [x] Verify horizontal overlap (>70%)
+- [x] Detect numbering (Table 1, Figure 2.3)
+- [x] Link caption to referenced element
+- [x] Multi-signal confidence scoring
+- [x] Comprehensive unit tests (30 tests, all passing)
+- [x] Type checking with mypy (100% pass)
+- [x] Linting with ruff (100% pass)
+- [x] 94% code coverage on caption_detector.py
+- [x] **Target**: >85% caption linkage accuracy
 
 ### 4.5 Footnote/Reference Detection
 - [ ] Identify superscript numbers or symbols
