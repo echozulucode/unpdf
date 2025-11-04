@@ -31,6 +31,8 @@ classifiers = [
 dependencies = [
     "pdfplumber>=0.10.0",
     "pdfminer.six>=20221105",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
 ]
 
 [project.optional-dependencies]
@@ -123,6 +125,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "pdfminer.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "numpy.*"
 ignore_missing_imports = true
 
 [tool.black]
