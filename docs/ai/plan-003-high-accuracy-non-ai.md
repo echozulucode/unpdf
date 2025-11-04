@@ -233,13 +233,17 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [x] Type checking and linting (100% pass)
 - [x] **Result**: 100% code coverage, robust whitespace analysis
 
-### 2.6 Hierarchical Layout Tree
-- [ ] Build physical layout tree (blocks → lines → words)
-- [ ] Assign geometric properties to each node
-- [ ] Create spatial index for fast queries
-- [ ] Implement containment detection
+### 2.6 Hierarchical Layout Tree ✅
+- [x] Build physical layout tree (blocks → lines → words)
+- [x] Assign geometric properties to each node
+- [x] Create spatial index for fast queries
+- [x] Implement containment detection
   - Child within parent bounds
   - Alignment and proximity validation
+- [x] Comprehensive unit tests (30 tests, all passing)
+- [x] Type checking with mypy (100% pass)
+- [x] Linting with ruff (100% pass)
+- [x] **Result**: 98% code coverage, efficient spatial queries
 
 **Deliverables**:
 - ✅ MVP layout analyzer with column detection
@@ -248,7 +252,7 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - ✅ Block classifier with semantic type detection
 - ✅ Docstrum clustering engine (`unpdf/processors/docstrum.py`)
 - ✅ Whitespace analysis system (`unpdf/processors/whitespace.py`)
-- Hierarchical layout tree
+- ✅ Hierarchical layout tree (`unpdf/processors/layout_tree.py`)
 
 **Tests**:
 - ✅ Unit tests for MVP (16 tests, all passing)
