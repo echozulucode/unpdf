@@ -1,7 +1,6 @@
 """Tests for RLSA (Run Length Smoothing Algorithm) block detection."""
 
 import numpy as np
-import pytest
 
 from unpdf.extractors.rlsa import (
     RLSAConfig,

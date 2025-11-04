@@ -1,6 +1,5 @@
 """Tests for whitespace analysis module."""
 
-import pytest
 
 from unpdf.processors.layout_analyzer import BoundingBox, TextBlock
 from unpdf.processors.whitespace import (

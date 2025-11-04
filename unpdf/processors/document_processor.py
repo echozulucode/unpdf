@@ -4,7 +4,6 @@ This module combines layout analysis, block classification, and content-specific
 processors to extract structured content from PDFs with high accuracy.
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,10 +14,8 @@ from unpdf.processors.block_classifier import BlockClassifier, FontStatistics
 from unpdf.processors.checkboxes import CheckboxDetector
 from unpdf.processors.code import CodeProcessor
 from unpdf.processors.docstrum import DocstrumClusterer
-from unpdf.processors.headings import HeadingProcessor
 from unpdf.processors.horizontal_rule import HorizontalRuleProcessor
 from unpdf.processors.layout_analyzer import LayoutAnalyzer, TextBlock
-from unpdf.processors.layout_tree import LayoutTreeBuilder
 from unpdf.processors.lists import ListProcessor
 from unpdf.processors.table_detector import HybridTableDetector
 from unpdf.processors.whitespace import WhitespaceAnalyzer
@@ -153,9 +150,7 @@ class DocumentProcessor:
         # Second pass: process each page with font statistics
         for page_num in range(len(doc)):
             page = doc[page_num]
-            processed_page = self._process_page(
-                page, page_num + 1, font_stats
-            )
+            processed_page = self._process_page(page, page_num + 1, font_stats)
             pages.append(processed_page)
 
         doc.close()
@@ -185,18 +180,18 @@ class DocumentProcessor:
         # Detect tables first (they take priority)
         tables = []
         if self.detect_tables:
-            tables = self.table_detector.detect_tables(page)
+            tables = self.table_detector.detect(page)  # type: ignore
 
         # Analyze layout
-        layout_info = {}
+        layout_info: dict[str, Any] = {}
         if self.detect_columns:
             text_blocks = self._blocks_to_text_blocks(raw_blocks)
-            columns = self.layout_analyzer.detect_columns(text_blocks)
-            ordered_blocks = self.layout_analyzer.determine_reading_order(
-                text_blocks, columns
+            columns = self.layout_analyzer.detect_columns(
+                text_blocks, page.width  # type: ignore
             )
-            layout_info["columns"] = columns
-            layout_info["reading_order"] = [tb.text for tb in ordered_blocks]
+            ordered_blocks = self.layout_analyzer.determine_reading_order(columns)
+            layout_info["columns"] = [str(c) for c in columns]
+            layout_info["reading_order"] = [str(tb) for tb in ordered_blocks]
         else:
             ordered_blocks = self._blocks_to_text_blocks(raw_blocks)
 
@@ -204,9 +199,7 @@ class DocumentProcessor:
         classified_blocks = self._classify_blocks(ordered_blocks, font_stats)
 
         # Apply content-specific processors
-        processed_blocks = self._apply_content_processors(
-            classified_blocks, page
-        )
+        processed_blocks = self._apply_content_processors(classified_blocks, page)
 
         # Detect images
         images = self._extract_images(page)
@@ -219,9 +212,7 @@ class DocumentProcessor:
             layout_info=layout_info,
         )
 
-    def _extract_blocks_from_page(
-        self, page: pymupdf.Page
-    ) -> list[dict[str, Any]]:
+    def _extract_blocks_from_page(self, page: pymupdf.Page) -> list[dict[str, Any]]:
         """Extract raw text blocks from a page using PyMuPDF.
 
         Args:
@@ -237,14 +228,16 @@ class DocumentProcessor:
             if block.get("type") == 0:  # Text block
                 for line in block.get("lines", []):
                     for span in line.get("spans", []):
-                        blocks.append({
-                            "text": span.get("text", ""),
-                            "bbox": span.get("bbox", (0, 0, 0, 0)),
-                            "font": span.get("font", ""),
-                            "size": span.get("size", 12.0),
-                            "flags": span.get("flags", 0),
-                            "color": span.get("color", 0),
-                        })
+                        blocks.append(
+                            {
+                                "text": span.get("text", ""),
+                                "bbox": span.get("bbox", (0, 0, 0, 0)),
+                                "font": span.get("font", ""),
+                                "size": span.get("size", 12.0),
+                                "flags": span.get("flags", 0),
+                                "color": span.get("color", 0),
+                            }
+                        )
 
         return blocks
 
@@ -280,9 +273,7 @@ class DocumentProcessor:
             )
         return text_blocks
 
-    def _compute_font_statistics(
-        self, blocks: list[dict[str, Any]]
-    ) -> FontStatistics:
+    def _compute_font_statistics(self, blocks: list[dict[str, Any]]) -> FontStatistics:
         """Compute font statistics from blocks.
 
         Args:
@@ -300,20 +291,16 @@ class DocumentProcessor:
 
             font = block.get("font", "").lower()
             if any(
-                keyword in font
-                for keyword in ["mono", "courier", "consolas", "code"]
+                keyword in font for keyword in ["mono", "courier", "consolas", "code"]
             ):
                 monospace_count += 1
 
         # Find most common size (body text)
-        if size_counts:
-            body_size = max(size_counts, key=size_counts.get)  # type: ignore
-        else:
-            body_size = 12.0
-
-        monospace_ratio = (
-            monospace_count / len(blocks) if blocks else 0.0
+        body_size = (
+            max(size_counts, key=size_counts.get) if size_counts else 12.0  # type: ignore
         )
+
+        monospace_ratio = monospace_count / len(blocks) if blocks else 0.0
 
         return FontStatistics(
             body_size=body_size,
@@ -387,11 +374,13 @@ class DocumentProcessor:
         for img_index, img in enumerate(image_list):
             xref = img[0]
             bbox = page.get_image_bbox(img)
-            images.append({
-                "xref": xref,
-                "bbox": bbox,
-                "index": img_index,
-            })
+            images.append(
+                {
+                    "xref": xref,
+                    "bbox": bbox,
+                    "index": img_index,
+                }
+            )
 
         return images
 

@@ -1,6 +1,5 @@
 """Tests for table content extraction."""
 
-import pytest
 
 from unpdf.models.layout import BoundingBox
 from unpdf.processors.table_content_extractor import (
@@ -135,9 +134,7 @@ class TestMergeTextBlocks:
         extractor = TableContentExtractor()
         blocks = [
             TextBlock(bbox=BoundingBox(0, 0, 50, 10), content="Line 1"),
-            TextBlock(
-                bbox=BoundingBox(0, 15, 50, 10), content="Line 2"
-            ),  # Y diff = 15
+            TextBlock(bbox=BoundingBox(0, 15, 50, 10), content="Line 2"),  # Y diff = 15
         ]
 
         result = extractor._merge_text_blocks(blocks)
@@ -220,9 +217,7 @@ class TestDetectHeaderRows:
 
         cells = [
             TableCell(bbox=BoundingBox(0, 0, 50, 20), row=0, col=0, content="Header1"),
-            TableCell(
-                bbox=BoundingBox(50, 0, 50, 20), row=0, col=1, content="Header2"
-            ),
+            TableCell(bbox=BoundingBox(50, 0, 50, 20), row=0, col=1, content="Header2"),
             TableCell(bbox=BoundingBox(0, 20, 50, 20), row=1, col=0, content="Data1"),
             TableCell(bbox=BoundingBox(50, 20, 50, 20), row=1, col=1, content="Data2"),
         ]
@@ -237,16 +232,10 @@ class TestDetectHeaderRows:
         )
 
         text_blocks = [
-            TextBlock(
-                bbox=BoundingBox(5, 5, 40, 10), content="Header1", is_bold=True
-            ),
-            TextBlock(
-                bbox=BoundingBox(55, 5, 40, 10), content="Header2", is_bold=True
-            ),
+            TextBlock(bbox=BoundingBox(5, 5, 40, 10), content="Header1", is_bold=True),
+            TextBlock(bbox=BoundingBox(55, 5, 40, 10), content="Header2", is_bold=True),
             TextBlock(bbox=BoundingBox(5, 25, 40, 10), content="Data1", is_bold=False),
-            TextBlock(
-                bbox=BoundingBox(55, 25, 40, 10), content="Data2", is_bold=False
-            ),
+            TextBlock(bbox=BoundingBox(55, 25, 40, 10), content="Data2", is_bold=False),
         ]
 
         result = extractor._detect_header_rows(table, text_blocks)
@@ -272,9 +261,7 @@ class TestDetectHeaderRows:
         )
 
         text_blocks = [
-            TextBlock(
-                bbox=BoundingBox(5, 5, 40, 10), content="Header", font_size=16.0
-            ),
+            TextBlock(bbox=BoundingBox(5, 5, 40, 10), content="Header", font_size=16.0),
             TextBlock(
                 bbox=BoundingBox(55, 5, 40, 10), content="Header2", font_size=14.0
             ),
@@ -303,12 +290,8 @@ class TestDetectHeaderRows:
         )
 
         text_blocks = [
-            TextBlock(
-                bbox=BoundingBox(5, 5, 40, 10), content="Row1", font_size=12.0
-            ),
-            TextBlock(
-                bbox=BoundingBox(5, 25, 40, 10), content="Row2", font_size=12.0
-            ),
+            TextBlock(bbox=BoundingBox(5, 5, 40, 10), content="Row1", font_size=12.0),
+            TextBlock(bbox=BoundingBox(5, 25, 40, 10), content="Row2", font_size=12.0),
         ]
 
         result = extractor._detect_header_rows(table, text_blocks)

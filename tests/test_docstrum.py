@@ -1,12 +1,12 @@
 """Tests for Docstrum clustering algorithm."""
 
-import pytest
 import math
+
 from unpdf.processors.docstrum import (
+    DocstrumClusterer,
+    TextBlock,
     TextComponent,
     TextLine,
-    TextBlock,
-    DocstrumClusterer,
 )
 
 

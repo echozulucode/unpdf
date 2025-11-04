@@ -1,8 +1,6 @@
 """Tests for the integrated document processor."""
 
-from unittest.mock import MagicMock, Mock, patch
-
-import pytest
+from unittest.mock import Mock, patch
 
 from unpdf.models.layout import Block, BlockType, BoundingBox, Style
 from unpdf.processors.block_classifier import FontStatistics
@@ -267,9 +265,7 @@ class TestDocumentProcessor:
         mock_doc.__getitem__ = Mock(return_value=mock_page)
         mock_pymupdf.open.return_value = mock_doc
 
-        processor = DocumentProcessor(
-            detect_columns=False, detect_tables=False
-        )
+        processor = DocumentProcessor(detect_columns=False, detect_tables=False)
         result = processor.process_document("test.pdf")
 
         assert isinstance(result, ProcessedDocument)

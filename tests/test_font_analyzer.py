@@ -2,7 +2,7 @@
 
 import pytest
 
-from unpdf.extractors.font_analyzer import FontAnalyzer, FontCluster, FontMetrics
+from unpdf.extractors.font_analyzer import FontAnalyzer
 
 
 class TestFontAnalyzer:
@@ -66,8 +66,7 @@ class TestFontAnalyzer:
         assert analyzer._normalize_font_family("Helvetica-Bold") == "Helvetica"
         assert analyzer._normalize_font_family("Arial-BoldItalic") == "Arial"
         assert (
-            analyzer._normalize_font_family("TimesNewRoman,Italic")
-            == "TimesNewRoman"
+            analyzer._normalize_font_family("TimesNewRoman,Italic") == "TimesNewRoman"
         )
         assert analyzer._normalize_font_family("Courier") == "Courier"
 
@@ -77,16 +76,46 @@ class TestFontAnalyzer:
 
         font_usages = {
             "font1": [
-                {"family": "Helvetica", "size": 12.0, "weight": "normal", "style": "normal"},
-                {"family": "Helvetica", "size": 12.1, "weight": "normal", "style": "normal"},
-                {"family": "Helvetica", "size": 11.9, "weight": "normal", "style": "normal"},
+                {
+                    "family": "Helvetica",
+                    "size": 12.0,
+                    "weight": "normal",
+                    "style": "normal",
+                },
+                {
+                    "family": "Helvetica",
+                    "size": 12.1,
+                    "weight": "normal",
+                    "style": "normal",
+                },
+                {
+                    "family": "Helvetica",
+                    "size": 11.9,
+                    "weight": "normal",
+                    "style": "normal",
+                },
             ],
             "font2": [
-                {"family": "Helvetica", "size": 24.0, "weight": "bold", "style": "normal"},
-                {"family": "Helvetica", "size": 24.2, "weight": "bold", "style": "normal"},
+                {
+                    "family": "Helvetica",
+                    "size": 24.0,
+                    "weight": "bold",
+                    "style": "normal",
+                },
+                {
+                    "family": "Helvetica",
+                    "size": 24.2,
+                    "weight": "bold",
+                    "style": "normal",
+                },
             ],
             "font3": [
-                {"family": "Helvetica", "size": 18.0, "weight": "bold", "style": "normal"},
+                {
+                    "family": "Helvetica",
+                    "size": 18.0,
+                    "weight": "bold",
+                    "style": "normal",
+                },
             ],
         }
 
@@ -131,15 +160,30 @@ class TestFontAnalyzer:
                 for _ in range(50)
             ],
             "h1": [
-                {"family": "Arial-Bold", "size": 24.0, "weight": "bold", "style": "normal"}
+                {
+                    "family": "Arial-Bold",
+                    "size": 24.0,
+                    "weight": "bold",
+                    "style": "normal",
+                }
                 for _ in range(5)
             ],
             "h2": [
-                {"family": "Arial-Medium", "size": 18.0, "weight": "bold", "style": "normal"}
+                {
+                    "family": "Arial-Medium",
+                    "size": 18.0,
+                    "weight": "bold",
+                    "style": "normal",
+                }
                 for _ in range(10)
             ],
             "h3": [
-                {"family": "Arial-Semi", "size": 14.4, "weight": "bold", "style": "normal"}
+                {
+                    "family": "Arial-Semi",
+                    "size": 14.4,
+                    "weight": "bold",
+                    "style": "normal",
+                }
                 for _ in range(8)
             ],
         }
@@ -150,7 +194,9 @@ class TestFontAnalyzer:
         assert len(clusters) >= 4
 
         # Check that body font is identified correctly
-        body_cluster = [c for c in clusters if c.weight == "normal" and c.style == "normal"][0]
+        body_cluster = [
+            c for c in clusters if c.weight == "normal" and c.style == "normal"
+        ][0]
         assert body_cluster.inferred_role == "body"
         assert body_cluster.representative_size == pytest.approx(12.0, abs=0.1)
 
@@ -197,15 +243,11 @@ class TestFontAnalyzer:
         analyzer = FontAnalyzer()
 
         char_data = {
-            "Courier": [
-                {"width": 10.0, "size": 12.0} for _ in range(20)
-            ],
+            "Courier": [{"width": 10.0, "size": 12.0} for _ in range(20)],
             "Helvetica": [
                 {"width": w, "size": 12.0} for w in [8.0, 12.0, 6.0, 10.0, 7.0]
             ],
-            "Monaco": [
-                {"width": 8.0, "size": 10.0} for _ in range(15)
-            ],
+            "Monaco": [{"width": 8.0, "size": 10.0} for _ in range(15)],
         }
 
         monospace = analyzer.detect_monospace_fonts(char_data)

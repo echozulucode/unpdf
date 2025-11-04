@@ -111,7 +111,9 @@ class CoordinateExtractor:
                     )
 
         except Exception as e:
-            logger.error(f"Error extracting text fragments from page {page_number}: {e}")
+            logger.error(
+                f"Error extracting text fragments from page {page_number}: {e}"
+            )
 
         return fragments
 

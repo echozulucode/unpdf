@@ -54,9 +54,7 @@ class FontAnalyzer:
         self.clusters: list[FontCluster] = []
         self.body_font_size: float | None = None
 
-    def extract_font_metrics(
-        self, chars: list[dict], font_name: str
-    ) -> FontMetrics:
+    def extract_font_metrics(self, chars: list[dict], font_name: str) -> FontMetrics:
         """Extract metrics for a font from character data.
 
         Args:
@@ -90,7 +88,9 @@ class FontAnalyzer:
         style = self._extract_style(font_name)
         size = chars[0].get("size", 0.0) if chars else 0.0
 
-        is_monospace = bool(coefficient_of_variation < self.MONOSPACE_VARIANCE_THRESHOLD)
+        is_monospace = bool(
+            coefficient_of_variation < self.MONOSPACE_VARIANCE_THRESHOLD
+        )
 
         return FontMetrics(
             family=self._normalize_font_family(font_name),
@@ -286,9 +286,7 @@ class FontAnalyzer:
 
         return "body"
 
-    def detect_monospace_fonts(
-        self, char_data: dict[str, list[dict]]
-    ) -> list[str]:
+    def detect_monospace_fonts(self, char_data: dict[str, list[dict]]) -> list[str]:
         """Detect which fonts are monospace.
 
         Args:
