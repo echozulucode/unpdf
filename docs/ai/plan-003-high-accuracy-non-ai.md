@@ -472,12 +472,28 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [x] 94% code coverage on caption_detector.py
 - [x] **Target**: >85% caption linkage accuracy
 
-### 4.5 Footnote/Reference Detection
-- [ ] Identify superscript numbers or symbols
-- [ ] Find matching footer text
-- [ ] Link via proximity and reference matching
-- [ ] Handle multiple reference styles
-- [ ] Preserve reference numbering
+### 4.5 Footnote/Reference Detection ✅
+- [x] Identify superscript numbers or symbols
+  - Detect superscript via font size ratio (<0.7× body font)
+  - Character length validation (1-3 characters)
+  - Support numeric, symbol, and letter markers
+- [x] Find matching footer text
+  - Footer region detection (bottom 15% of page)
+  - Marker extraction from footer text
+  - Pattern matching for various formats
+- [x] Link via proximity and reference matching
+  - Exact marker matching
+  - Confidence scoring for matches
+- [x] Handle multiple reference styles
+  - Numeric: 1, 2, 3...
+  - Symbols: *, †, ‡, §, ¶...
+  - Letters: a, b, c... (including Roman numerals)
+- [x] Preserve reference numbering
+- [x] Comprehensive unit tests (35 tests, all passing)
+- [x] Type checking with mypy (100% pass)
+- [x] Linting with ruff (100% pass)
+- [x] Code coverage: 97% on footnote_detector.py
+- [x] **Target**: >85% footnote detection accuracy
 
 ### 4.6 Confidence Scoring
 - [ ] Implement multi-signal confidence calculation
@@ -496,12 +512,12 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [ ] Log confidence for validation
 
 **Deliverables**:
-- List detection module
-- Code block detector
-- Header classifier
-- Caption linker
-- Footnote handler
-- Confidence scoring system
+- ✅ List detection module (`unpdf/processors/list_detector.py`)
+- ✅ Code block detector (`unpdf/processors/code_detector.py`)
+- ✅ Header classifier (`unpdf/processors/header_classifier.py`)
+- ✅ Caption linker (`unpdf/processors/caption_detector.py`)
+- ✅ Footnote handler (`unpdf/processors/footnote_detector.py`)
+- [ ] Confidence scoring system (Phase 4.6)
 
 **Tests**:
 - Test on documents with varied list styles
