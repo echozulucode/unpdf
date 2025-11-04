@@ -92,6 +92,16 @@ class BoundingBox:
         """Vertical center."""
         return self.y + self.height / 2
 
+    @property
+    def center(self) -> tuple[float, float]:
+        """Center point (x, y)."""
+        return (self.center_x, self.center_y)
+
+    @property
+    def area(self) -> float:
+        """Area of the bounding box."""
+        return self.width * self.height
+
     def overlaps(self, other: "BoundingBox") -> bool:
         """Check if this box overlaps with another."""
         return not (
@@ -110,31 +120,47 @@ class BoundingBox:
             and self.y1 >= other.y1
         )
 
+    def intersection_area(self, other: "BoundingBox") -> float:
+        """Calculate the area of intersection with another box.
+
+        Args:
+            other: Other bounding box
+
+        Returns:
+            Area of intersection in square units
+        """
+        if not self.overlaps(other):
+            return 0.0
+
+        x_overlap = max(0, min(self.x1, other.x1) - max(self.x0, other.x0))
+        y_overlap = max(0, min(self.y1, other.y1) - max(self.y0, other.y0))
+
+        return x_overlap * y_overlap
+
     def overlap_percentage(self, other: "BoundingBox") -> float:
         """Calculate percentage of overlap between boxes.
 
         Returns:
             Percentage of this box that overlaps with other (0.0-1.0)
         """
-        if not self.overlaps(other):
+        intersection = self.intersection_area(other)
+
+        if self.area == 0:
             return 0.0
 
-        # Calculate intersection area
-        x_overlap = max(
-            0, min(self.x1, other.x1) - max(self.x0, other.x0)
-        )
-        y_overlap = max(
-            0, min(self.y1, other.y1) - max(self.y0, other.y0)
-        )
-        intersection_area = x_overlap * y_overlap
+        return intersection / self.area
 
-        # Calculate this box's area
-        this_area = self.width * self.height
+    def contains_point(self, point: tuple[float, float]) -> bool:
+        """Check if this box contains a point.
 
-        if this_area == 0:
-            return 0.0
+        Args:
+            point: (x, y) coordinates
 
-        return intersection_area / this_area
+        Returns:
+            True if point is inside box
+        """
+        x, y = point
+        return self.x0 <= x <= self.x1 and self.y0 <= y <= self.y1
 
 
 @dataclass
