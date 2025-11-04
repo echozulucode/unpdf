@@ -215,3 +215,214 @@ class TestAnalyzePageLayout:
 
         assert len(columns) == 0
         assert len(ordered) == 0
+
+
+class TestXYCutSegmentation:
+    """Tests for XY-Cut recursive segmentation algorithm."""
+
+    def test_xy_cut_single_block(self):
+        """Test XY-Cut with single block."""
+        blocks = [TextBlock(BoundingBox(50, 700, 500, 720), "Single block", 12.0)]
+
+        analyzer = LayoutAnalyzer(method="xy_cut")
+        segments = analyzer.xy_cut_segmentation(blocks, page_width=600, page_height=800)
+
+        assert len(segments) == 1
+        assert len(segments[0]) == 1
+        assert segments[0][0].text == "Single block"
+
+    def test_xy_cut_two_columns(self):
+        """Test XY-Cut with two columns separated by vertical gap."""
+        blocks = [
+            # Left column
+            TextBlock(BoundingBox(50, 700, 200, 720), "Left 1", 12.0),
+            TextBlock(BoundingBox(50, 650, 200, 670), "Left 2", 12.0),
+            # Right column (significant horizontal gap)
+            TextBlock(BoundingBox(400, 700, 550, 720), "Right 1", 12.0),
+            TextBlock(BoundingBox(400, 650, 550, 670), "Right 2", 12.0),
+        ]
+
+        analyzer = LayoutAnalyzer(method="xy_cut", xy_cut_ty_threshold=0.5)
+        segments = analyzer.xy_cut_segmentation(blocks, page_width=600, page_height=800)
+
+        # Should segment into at least 2 groups (likely 4 - 2 columns x 2 rows)
+        assert len(segments) >= 2
+
+    def test_xy_cut_two_rows(self):
+        """Test XY-Cut with two rows separated by horizontal gap."""
+        blocks = [
+            # Top row
+            TextBlock(BoundingBox(50, 700, 500, 720), "Top", 12.0),
+            # Bottom row (significant vertical gap - 180px gap)
+            TextBlock(BoundingBox(50, 500, 500, 520), "Bottom", 12.0),
+        ]
+
+        analyzer = LayoutAnalyzer(method="xy_cut", xy_cut_tx_threshold=0.3)
+        segments = analyzer.xy_cut_segmentation(blocks, page_width=600, page_height=800)
+
+        # Should segment into 2 groups
+        assert len(segments) == 2
+
+    def test_xy_cut_grid_layout(self):
+        """Test XY-Cut with 2x2 grid layout."""
+        blocks = [
+            # Top-left
+            TextBlock(BoundingBox(50, 700, 200, 720), "TL", 12.0),
+            # Top-right
+            TextBlock(BoundingBox(400, 700, 550, 720), "TR", 12.0),
+            # Bottom-left
+            TextBlock(BoundingBox(50, 500, 200, 520), "BL", 12.0),
+            # Bottom-right
+            TextBlock(BoundingBox(400, 500, 550, 520), "BR", 12.0),
+        ]
+
+        analyzer = LayoutAnalyzer(
+            method="xy_cut", xy_cut_tx_threshold=0.3, xy_cut_ty_threshold=0.5
+        )
+        segments = analyzer.xy_cut_segmentation(blocks, page_width=600, page_height=800)
+
+        # Should segment into 4 groups (2 columns × 2 rows)
+        assert len(segments) >= 4
+
+    def test_xy_cut_no_gaps(self):
+        """Test XY-Cut with densely packed blocks (no significant gaps)."""
+        blocks = [
+            TextBlock(BoundingBox(50, 700, 500, 720), "Block 1", 12.0),
+            TextBlock(BoundingBox(50, 680, 500, 700), "Block 2", 12.0),
+            TextBlock(BoundingBox(50, 660, 500, 680), "Block 3", 12.0),
+        ]
+
+        analyzer = LayoutAnalyzer(method="xy_cut")
+        segments = analyzer.xy_cut_segmentation(blocks, page_width=600, page_height=800)
+
+        # Should not segment (all in one group)
+        assert len(segments) == 1
+        assert len(segments[0]) == 3
+
+    def test_estimate_avg_char_height(self):
+        """Test average character height estimation."""
+        blocks = [
+            TextBlock(BoundingBox(0, 0, 100, 12), "Text 1", 12.0),
+            TextBlock(BoundingBox(0, 15, 100, 27), "Text 2", 12.0),
+            TextBlock(BoundingBox(0, 30, 200, 54), "Header", 24.0),
+        ]
+
+        analyzer = LayoutAnalyzer()
+        avg_height = analyzer._estimate_avg_char_height(blocks)
+
+        assert avg_height > 0
+        # Average of 12, 12, 24 = 16
+        assert 14 <= avg_height <= 18
+
+    def test_estimate_avg_char_width(self):
+        """Test average character width estimation."""
+        blocks = [
+            TextBlock(BoundingBox(0, 0, 70, 12), "10chars!!", 12.0),  # ~7 per char
+            TextBlock(
+                BoundingBox(0, 15, 100, 27), "12character!", 12.0
+            ),  # ~8.3 per char
+        ]
+
+        analyzer = LayoutAnalyzer()
+        avg_width = analyzer._estimate_avg_char_width(blocks)
+
+        assert avg_width > 0
+        assert 6 <= avg_width <= 10  # Reasonable range
+
+    def test_compute_horizontal_profile(self):
+        """Test horizontal projection profile computation."""
+        blocks = [
+            TextBlock(BoundingBox(50, 700, 150, 720), "Block 1", 12.0),
+            TextBlock(BoundingBox(200, 700, 300, 720), "Block 2", 12.0),
+        ]
+
+        analyzer = LayoutAnalyzer()
+        profile = analyzer._compute_horizontal_profile(blocks, 0, 400)
+
+        # Profile should have entries for x-coordinates covered by blocks
+        assert len(profile) > 0
+        assert 50.0 in profile or 51.0 in profile  # Block 1 starts at x=50
+
+    def test_compute_vertical_profile(self):
+        """Test vertical projection profile computation."""
+        blocks = [
+            TextBlock(BoundingBox(50, 700, 150, 720), "Block 1", 12.0),
+            TextBlock(BoundingBox(50, 600, 150, 620), "Block 2", 12.0),
+        ]
+
+        analyzer = LayoutAnalyzer()
+        profile = analyzer._compute_vertical_profile(blocks, 500, 800)
+
+        # Profile should have entries for y-coordinates covered by blocks
+        assert len(profile) > 0
+        assert 700.0 in profile or 701.0 in profile  # Block 1 starts at y=700
+
+    def test_find_valleys(self):
+        """Test valley detection in projection profile."""
+        # Create a profile with a clear gap
+        profile = {
+            0.0: 1,
+            1.0: 1,
+            2.0: 1,
+            # Gap from 3-12
+            3.0: 0,
+            4.0: 0,
+            5.0: 0,
+            6.0: 0,
+            7.0: 0,
+            8.0: 0,
+            9.0: 0,
+            10.0: 0,
+            11.0: 0,
+            12.0: 0,
+            # Content resumes
+            13.0: 1,
+            14.0: 1,
+            15.0: 1,
+        }
+
+        analyzer = LayoutAnalyzer()
+        valleys = analyzer._find_valleys(profile, threshold=5.0)
+
+        # Should detect one valley from 3-12 (width = 10)
+        assert len(valleys) == 1
+        assert valleys[0][0] == 3.0
+        assert valleys[0][1] == 12.0
+
+    def test_find_valleys_no_gaps(self):
+        """Test valley detection with no gaps."""
+        # Continuous profile (no gaps)
+        profile = {float(i): 1 for i in range(20)}
+
+        analyzer = LayoutAnalyzer()
+        valleys = analyzer._find_valleys(profile, threshold=5.0)
+
+        # Should find no valleys
+        assert len(valleys) == 0
+
+    def test_find_valleys_small_gaps(self):
+        """Test valley detection ignores gaps below threshold."""
+        # Profile with small gaps
+        profile = {
+            0.0: 1,
+            1.0: 1,
+            # Small gap (below threshold)
+            2.0: 0,
+            3.0: 0,
+            # Content resumes
+            4.0: 1,
+            5.0: 1,
+        }
+
+        analyzer = LayoutAnalyzer()
+        valleys = analyzer._find_valleys(profile, threshold=5.0)
+
+        # Should ignore small gap
+        assert len(valleys) == 0
+
+    def test_xy_cut_empty_blocks(self):
+        """Test XY-Cut with empty block list."""
+        analyzer = LayoutAnalyzer(method="xy_cut")
+        segments = analyzer.xy_cut_segmentation([], page_width=600, page_height=800)
+
+        assert len(segments) == 0

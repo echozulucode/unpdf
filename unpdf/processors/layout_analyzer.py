@@ -5,6 +5,7 @@ including column detection, block segmentation, and reading order determination.
 """
 
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass
@@ -85,6 +86,9 @@ class LayoutAnalyzer:
         min_column_width_ratio: float = 0.3,
         column_gap_threshold: float = 0.05,
         alignment_tolerance: float = 10.0,
+        method: Literal["whitespace", "xy_cut"] = "whitespace",
+        xy_cut_tx_threshold: float = 0.5,
+        xy_cut_ty_threshold: float = 1.5,
     ):
         """Initialize the layout analyzer.
 
@@ -92,10 +96,16 @@ class LayoutAnalyzer:
             min_column_width_ratio: Minimum column width as ratio of page width
             column_gap_threshold: Minimum gap between columns as ratio of page width
             alignment_tolerance: Tolerance in pixels for alignment detection
+            method: Layout detection method ("whitespace" or "xy_cut")
+            xy_cut_tx_threshold: Horizontal threshold for XY-Cut (multiple of char height)
+            xy_cut_ty_threshold: Vertical threshold for XY-Cut (multiple of char width)
         """
         self.min_column_width_ratio = min_column_width_ratio
         self.column_gap_threshold = column_gap_threshold
         self.alignment_tolerance = alignment_tolerance
+        self.method = method
+        self.xy_cut_tx_threshold = xy_cut_tx_threshold
+        self.xy_cut_ty_threshold = xy_cut_ty_threshold
 
     def detect_columns(
         self, blocks: list[TextBlock], page_width: float
@@ -294,6 +304,245 @@ class LayoutAnalyzer:
             block.reading_order = i
 
         return sorted_by_y
+
+    def xy_cut_segmentation(
+        self, blocks: list[TextBlock], page_width: float, page_height: float
+    ) -> list[list[TextBlock]]:
+        """Segment blocks using Recursive XY-Cut algorithm.
+
+        Args:
+            blocks: List of text blocks to segment
+            page_width: Width of the page
+            page_height: Height of the page
+
+        Returns:
+            List of block groups (segments)
+        """
+        if not blocks:
+            return []
+
+        # Estimate average character dimensions from blocks
+        avg_char_height = self._estimate_avg_char_height(blocks)
+        avg_char_width = self._estimate_avg_char_width(blocks)
+
+        # Set thresholds based on character dimensions
+        tx_threshold = self.xy_cut_tx_threshold * avg_char_height
+        ty_threshold = self.xy_cut_ty_threshold * avg_char_width
+
+        # Recursive segmentation
+        segments = self._xy_cut_recursive(
+            blocks, 0, page_width, 0, page_height, tx_threshold, ty_threshold
+        )
+
+        return segments
+
+    def _estimate_avg_char_height(self, blocks: list[TextBlock]) -> float:
+        """Estimate average character height from blocks."""
+        heights = [b.bbox.height for b in blocks if b.bbox.height > 0]
+        return sum(heights) / len(heights) if heights else 12.0
+
+    def _estimate_avg_char_width(self, blocks: list[TextBlock]) -> float:
+        """Estimate average character width from blocks."""
+        widths = []
+        for b in blocks:
+            if b.text and b.bbox.width > 0:
+                char_width = b.bbox.width / len(b.text)
+                widths.append(char_width)
+        return sum(widths) / len(widths) if widths else 6.0
+
+    def _xy_cut_recursive(
+        self,
+        blocks: list[TextBlock],
+        x_min: float,
+        x_max: float,
+        y_min: float,
+        y_max: float,
+        tx_threshold: float,
+        ty_threshold: float,
+    ) -> list[list[TextBlock]]:
+        """Recursively segment blocks using XY-Cut algorithm.
+
+        Args:
+            blocks: Blocks to segment
+            x_min: Minimum x-coordinate of current region
+            x_max: Maximum x-coordinate of current region
+            y_min: Minimum y-coordinate of current region
+            y_max: Maximum y-coordinate of current region
+            tx_threshold: Horizontal valley threshold
+            ty_threshold: Vertical valley threshold
+
+        Returns:
+            List of block segments
+        """
+        if not blocks:
+            return []
+
+        if len(blocks) == 1:
+            return [blocks]
+
+        # Filter blocks within the current region
+        region_blocks = [
+            b
+            for b in blocks
+            if b.bbox.x0 >= x_min - 1
+            and b.bbox.x1 <= x_max + 1
+            and b.bbox.y0 >= y_min - 1
+            and b.bbox.y1 <= y_max + 1
+        ]
+
+        if not region_blocks:
+            return []
+
+        # Compute projection profiles
+        h_profile = self._compute_horizontal_profile(region_blocks, x_min, x_max)
+        v_profile = self._compute_vertical_profile(region_blocks, y_min, y_max)
+
+        # Find valleys
+        h_valleys = self._find_valleys(h_profile, ty_threshold)
+        v_valleys = self._find_valleys(v_profile, tx_threshold)
+
+        # Choose cut direction (alternate: horizontal first)
+        if h_valleys:
+            # Find widest horizontal valley
+            widest_valley = max(h_valleys, key=lambda v: v[1] - v[0])
+            cut_x = (widest_valley[0] + widest_valley[1]) / 2
+
+            # Split blocks into left and right
+            left_blocks = [b for b in region_blocks if b.bbox.center_x < cut_x]
+            right_blocks = [b for b in region_blocks if b.bbox.center_x >= cut_x]
+
+            # Recurse
+            left_segments = self._xy_cut_recursive(
+                left_blocks, x_min, cut_x, y_min, y_max, tx_threshold, ty_threshold
+            )
+            right_segments = self._xy_cut_recursive(
+                right_blocks, cut_x, x_max, y_min, y_max, tx_threshold, ty_threshold
+            )
+
+            return left_segments + right_segments
+
+        elif v_valleys:
+            # Find widest vertical valley
+            widest_valley = max(v_valleys, key=lambda v: v[1] - v[0])
+            cut_y = (widest_valley[0] + widest_valley[1]) / 2
+
+            # Split blocks into top and bottom
+            top_blocks = [b for b in region_blocks if b.bbox.center_y > cut_y]
+            bottom_blocks = [b for b in region_blocks if b.bbox.center_y <= cut_y]
+
+            # Recurse
+            top_segments = self._xy_cut_recursive(
+                top_blocks, x_min, x_max, cut_y, y_max, tx_threshold, ty_threshold
+            )
+            bottom_segments = self._xy_cut_recursive(
+                bottom_blocks, x_min, x_max, y_min, cut_y, tx_threshold, ty_threshold
+            )
+
+            return top_segments + bottom_segments
+
+        else:
+            # No more valleys, return as single segment
+            return [region_blocks]
+
+    def _compute_horizontal_profile(
+        self, blocks: list[TextBlock], x_min: float, x_max: float
+    ) -> dict[float, int]:
+        """Compute horizontal projection profile (count of blocks at each x position).
+
+        Args:
+            blocks: Blocks to analyze
+            x_min: Minimum x-coordinate of region
+            x_max: Maximum x-coordinate of region
+
+        Returns:
+            Dictionary mapping x-coordinate to block count
+        """
+        # Initialize profile with all positions as 0
+        profile: dict[float, int] = {
+            float(x): 0 for x in range(int(x_min), int(x_max) + 1)
+        }
+
+        for b in blocks:
+            x_start = int(max(b.bbox.x0, x_min))
+            x_end = int(min(b.bbox.x1, x_max))
+
+            for x in range(x_start, x_end + 1):
+                profile[float(x)] = profile.get(float(x), 0) + 1
+
+        return profile
+
+    def _compute_vertical_profile(
+        self, blocks: list[TextBlock], y_min: float, y_max: float
+    ) -> dict[float, int]:
+        """Compute vertical projection profile (count of blocks at each y position).
+
+        Args:
+            blocks: Blocks to analyze
+            y_min: Minimum y-coordinate of region
+            y_max: Maximum y-coordinate of region
+
+        Returns:
+            Dictionary mapping y-coordinate to block count
+        """
+        # Initialize profile with all positions as 0
+        profile: dict[float, int] = {
+            float(y): 0 for y in range(int(y_min), int(y_max) + 1)
+        }
+
+        for b in blocks:
+            y_start = int(max(b.bbox.y0, y_min))
+            y_end = int(min(b.bbox.y1, y_max))
+
+            for y in range(y_start, y_end + 1):
+                profile[float(y)] = profile.get(float(y), 0) + 1
+
+        return profile
+
+    def _find_valleys(
+        self, profile: dict[float, int], threshold: float
+    ) -> list[tuple[float, float]]:
+        """Find valleys (gaps) in projection profile.
+
+        Args:
+            profile: Projection profile
+            threshold: Minimum valley width
+
+        Returns:
+            List of (start, end) tuples for each valley
+        """
+        if not profile:
+            return []
+
+        valleys: list[tuple[float, float]] = []
+        sorted_coords = sorted(profile.keys())
+
+        valley_start: float | None = None
+
+        for i, coord in enumerate(sorted_coords):
+            if profile[coord] == 0:
+                # Start or continue valley
+                if valley_start is None:
+                    valley_start = coord
+            else:
+                # End valley
+                if valley_start is not None:
+                    valley_end = sorted_coords[i - 1] if i > 0 else valley_start
+                    valley_width = valley_end - valley_start
+
+                    if valley_width >= threshold:
+                        valleys.append((valley_start, valley_end))
+
+                    valley_start = None
+
+        # Check if we ended in a valley
+        if valley_start is not None:
+            valley_end = sorted_coords[-1]
+            valley_width = valley_end - valley_start
+
+            if valley_width >= threshold:
+                valleys.append((valley_start, valley_end))
+
+        return valleys
 
 
 def analyze_page_layout(
