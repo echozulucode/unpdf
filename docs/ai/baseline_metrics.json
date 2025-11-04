@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-11-03 20:09:15",
+  "total_pdfs": 1,
+  "successful": 1,
+  "failed": 0,
+  "metrics": [
+    {
+      "file": "example-obsidian\\obsidian-input.pdf",
+      "file_size_bytes": 109391,
+      "is_tagged": false,
+      "structure_elements": {},
+      "conversion_time_seconds": 1.6,
+      "output_length_chars": 2020,
+      "output_lines": 129,
+      "markdown_elements": {
+        "headers": 26,
+        "lists": 19,
+        "code_blocks": 6,
+        "tables": 45,
+        "blockquotes": 2
+      },
+      "success": true,
+      "error": null
+    }
+  ]
+}

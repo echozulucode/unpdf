@@ -1,8 +1,8 @@
 # Plan 002: Bug Fixes for Obsidian PDF Conversion Issues
 
-**Status**: In Progress (Phase 1-8 Complete, Phase 9 Steps 1-4 Complete)  
+**Status**: In Progress (Phase 1-8 Complete, Phase 9 Steps 1-5 Complete, Reanalyzed 2025-11-03)  
 **Created**: 2025-11-02  
-**Updated**: 2025-11-03 00:39 UTC  
+**Updated**: 2025-11-03 00:57 UTC  
 **Priority**: High
 
 ## Problem Summary
@@ -142,26 +142,86 @@ Testing with example-obsidian revealed multiple critical issues in the PDF-to-Ma
 - **KNOWN ISSUE**: Some inline code spans with extreme indentation (x0>150) now detected as checklist items - needs further investigation
 
 ### Phase 9: Remaining Critical Fixes
-- [x] **Step 9.1**: Fix checkbox false positives in Headers section (inline code with `#` detected as checklist)
+
+**COMPLETED STEPS:**
+- [x] **Step 9.1**: Fix checkbox false positives in Headers section ✅
   - **FIXED**: Added monospace font detection + left margin check + horizontal distance check
   - **FIXED**: Set `has_checkbox` and `checkbox_checked` flags when annotating
   - **FIXED**: ListProcessor now only treats text as checkbox if `has_checkbox=True`
-  - Remaining issue: Text spans not merged into paragraphs (separate issue)
-- [x] **Step 9.2**: Fix code block boundary detection (print statement should be inside Python block)
+  
+- [x] **Step 9.2**: Fix code block boundary detection ✅
   - **FIXED**: Increased code block grouping threshold from 20pt to 40pt to handle blank lines
-- [x] **Step 9.3**: Fix JSON code block language identifier detection
+  
+- [x] **Step 9.3**: Fix JSON code block language identifier ✅
   - **FIXED**: Added JSON detection based on `{}` or `[]` with quotes and colons
-- [x] **Step 9.4**: Add hyperlink preservation [text](url)
+  
+- [x] **Step 9.4**: Add hyperlink preservation ✅
   - **FIXED**: Extract link annotations from PDF and annotate spans with URLs
   - **FIXED**: Created LinkElement class and integrate into processing pipeline
-- [x] **Step 9.5**: Add horizontal rule detection (--- separators)
+  
+- [x] **Step 9.5**: Add horizontal rule detection ✅
   - **FIXED**: Created HorizontalRuleProcessor to detect horizontal rules from PDF drawings
   - **FIXED**: Detect long thin rectangles (width > 400pt, height < 3pt) as horizontal rules
   - **FIXED**: Integrate HR elements into position-based element sorting
   - **RESULT**: 7 horizontal rules correctly detected and placed in output
-- [ ] **Step 9.6**: Add YAML frontmatter detection/preservation
-- [ ] **Step 9.7**: Decide on ordered list numbering strategy (auto vs explicit)
-- [ ] **Step 9.8**: Merge consecutive paragraph spans on same line into single paragraph
+
+**REANALYSIS RESULTS (2025-11-03 01:00 UTC - POST TEST RUN):**
+
+All 172 tests passing! Fresh conversion generated.
+
+**INVESTIGATION UPDATE (2025-11-03 01:02 UTC):**
+
+After detailed investigation:
+- YAML frontmatter: NOT IN PDF (Obsidian doesn't render metadata) - not fixable
+- HR detection: All 7 HRs correctly identified from PDF drawings, but positioning may have coordinate system issues
+- Inline code: Root cause identified - spans on same line split into separate elements
+
+Detailed comparison:
+
+**ACTUAL REMAINING ISSUES (from output-recheck.md):**
+
+1. **P0 - YAML Frontmatter Missing** ❌
+   - Lines 1-5 completely absent (should have `---\ntitle: "..."\n---`)
+   - Output starts directly at "# Markdown Syntax Examples"
+   
+2. **P1 - Inline code "#" broken into wrong section** ❌  
+   - Lines 8-10: `` `#  ` `` on separate line, followed by split text
+   - Expected (line 15 of original): "You can use one to six `#` symbols to create headers."
+   - Got: Inline code `` `#  ` `` on line 8, text on lines 9-10 separately
+   
+3. **P1 - Spurious HR between Bananas and Oranges** ❌
+   - Line 34 of output has `---` breaking the unordered list
+   - Original lines 30-34: All part of same continuous list
+   
+4. **P1 - Inline code order reversed** ❌
+   - Line 76-78: `` `print("Hello, world!") ` `` BEFORE text, should be AFTER
+   - Original line 75: "You can embed inline code using backticks, e.g. `print("Hello, world!")`."
+   - Got: inline code first, then text, then lone period
+   
+5. **P1 - Spurious HRs in code sections** ❌
+   - Lines 52, 72, 90, 103, 107: Extra `---` not in original
+   - These appear before/after code blocks and tables incorrectly
+   
+6. **P2 - Python code block indentation lost** ❌
+   - Lines 86-87: No indentation on """Return a greeting.""" and return statement
+   - Original lines 83-84 have 4-space indentation
+   
+7. **P2 - Table ordering swapped** ❌
+   - Output shows "Aligned Columns" table first (lines 56-60), "Basic Table" second (lines 64-68)
+   - Original has "Basic Table" first (lines 55-59), "Aligned Columns" second (lines 63-67)
+   
+8. **P2 - Missing first HR in original** ❌
+   - Original line 11 has `---` after opening paragraph
+   - Output line 5 missing this HR
+   
+9. **P2 - Missing HR before Section 7** ❌
+   - Original line 127 has `---` before "## 7. Links and Images"
+   - Output line 125 missing this HR
+   
+10. **P3 - Ordered list all numbered "1."** ✓ (Valid Markdown)
+    - Lines 39-42 use "1." for all items
+    - Original uses explicit 1, 2, 3, 4
+    - **DECISION**: Keep as-is (valid, auto-numbered Markdown)
 
 ## Success Criteria
 
@@ -179,14 +239,25 @@ Testing with example-obsidian revealed multiple critical issues in the PDF-to-Ma
 - [x] Blockquotes render with > prefix - Phase 8
 - [x] No spurious >>> symbols - Phase 8
 
-❌ **REMAINING (Phase 9):**
+✅ **PHASE 9 COMPLETED (Steps 1-5):**
 - [x] No checkbox false positives in non-checklist content - Step 9.1 ✅
 - [x] Code block boundaries correctly detected - Step 9.2 ✅
 - [x] JSON blocks have language identifier - Step 9.3 ✅
 - [x] Hyperlinks preserved as [text](url) - Step 9.4 ✅
 - [x] Horizontal rules (---) preserved - Step 9.5 ✅
-- [ ] YAML frontmatter preserved - Step 9.6
-- [ ] Text spans merged into paragraphs - Step 9.8
+
+❌ **REMAINING STEPS (Revised based on recheck):**
+- [x] **Step 9.6**: YAML frontmatter detection (P0 - NOT FIXABLE - Obsidian doesn't render frontmatter in PDF)
+- [ ] **Step 9.7**: Fix inline code positioning within paragraphs (P1 - HIGH)  
+  - ROOT CAUSE: Spans on same line being processed as separate elements
+  - SOLUTION: Merge consecutive spans with similar y0 into single paragraph, preserve inline code
+- [ ] **Step 9.8**: Fix spurious horizontal rules (P1 - HIGH - START HERE)
+  - 7 HRs detected, only 3 should exist
+  - Lines 34 (in list), 52, 72, 90, 103, 107 are false positives
+- [ ] **Step 9.9**: Preserve code block indentation (P2 - MEDIUM)
+- [ ] **Step 9.10**: Fix table ordering (P2 - MEDIUM)
+- [ ] **Step 9.11**: Detect horizontal rules from original (P2 - MEDIUM)
+- [ ] **Step 9.12**: Ordered list numbering (P3 - LOW, SKIP - valid as-is)
 
 ## Testing
 

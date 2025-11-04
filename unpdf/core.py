@@ -53,8 +53,10 @@ def _group_code_blocks(elements: list[Any]) -> list[Any]:
             current_y0 = getattr(elem, "y0", 0)
             current_page = getattr(elem, "page_number", 1)
 
-            if code_buffer and prev_y0 is not None and (
-                prev_page != current_page or abs(current_y0 - prev_y0) > 40
+            if (
+                code_buffer
+                and prev_y0 is not None
+                and (prev_page != current_page or abs(current_y0 - prev_y0) > 40)
             ):
                 # Gap too large or different page - flush buffer as code block
                 if len(code_buffer) >= 3:  # At least 3 lines for a code block
@@ -256,9 +258,7 @@ def convert_pdf(
 
         doc = pymupdf.open(pdf_path)
         pages_to_process = (
-            [doc[i - 1] for i in page_numbers if i <= len(doc)]
-            if page_numbers
-            else doc
+            [doc[i - 1] for i in page_numbers if i <= len(doc)] if page_numbers else doc
         )
         page_num_offset = page_numbers[0] if page_numbers else 1
         for page_idx, page in enumerate(pages_to_process):
@@ -412,7 +412,15 @@ def convert_pdf(
 
             # Create a combined list with position info
             all_elements: list[
-                tuple[int, float, str, CodeBlockElement | InlineCodeElement | ParagraphElement | TableElement]
+                tuple[
+                    int,
+                    float,
+                    str,
+                    CodeBlockElement
+                    | InlineCodeElement
+                    | ParagraphElement
+                    | TableElement,
+                ]
             ] = []
 
             for elem in filtered_elements:
