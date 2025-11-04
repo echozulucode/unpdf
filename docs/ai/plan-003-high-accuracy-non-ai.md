@@ -203,18 +203,22 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [x] Type checking and linting (100% pass)
 - [x] **Result**: 95% code coverage, robust classification
 
-### 2.4 Docstrum Clustering
-- [ ] Extract connected components from text
-- [ ] Build KD-tree for spatial indexing (O(log n) queries)
-- [ ] Find k=5 nearest neighbors per component
-- [ ] Create document spectrum (angle/distance histograms)
-- [ ] Detect skew from angle histogram peak
-- [ ] Extract spacing from distance peaks
-- [ ] Form text lines via transitive closure (ft = 2-3× char_spacing)
-- [ ] Merge lines into blocks
-  - Parallel distance: fpa = 1.5-2.0× line_spacing
-  - Perpendicular distance: fpe = 0.3-0.5× char_width
-- [ ] **Target**: Handle multi-orientation text
+### 2.4 Docstrum Clustering ✅
+- [x] Extract connected components from text
+- [x] Build KD-tree for spatial indexing (O(log n) queries)
+- [x] Find k=5 nearest neighbors per component
+- [x] Create document spectrum (angle/distance histograms)
+- [x] Detect skew from angle histogram peak
+- [x] Extract spacing from distance peaks
+- [x] Form text lines via transitive closure (ft = 2-3× char_spacing)
+- [x] Merge lines into blocks
+  - Parallel distance: fpa = 1.75× line_spacing (configurable)
+  - Perpendicular distance: fpe = 0.4× char_width (configurable)
+- [x] Implement alignment detection (left, right, center, justify)
+- [x] Comprehensive unit tests (21 tests, all passing)
+- [x] Type checking with mypy (100% pass)
+- [x] Linting with ruff and formatting with black
+- [x] **Result**: 94% code coverage, handles skewed and multi-orientation text
 
 ### 2.5 Whitespace Analysis Enhancement
 - [ ] Detect column boundaries (vertical gap >15% page width)
@@ -238,7 +242,7 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - ✅ XY-Cut segmentation module
 - ✅ RLSA block detector
 - ✅ Block classifier with semantic type detection
-- Docstrum clustering engine
+- ✅ Docstrum clustering engine (`unpdf/processors/docstrum.py`)
 - Enhanced whitespace analysis system
 - Hierarchical layout tree
 
@@ -247,6 +251,7 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - ✅ Unit tests for XY-Cut (24 tests, all passing)
 - ✅ Unit tests for RLSA (32 tests, all passing)
 - ✅ Unit tests for Block Classifier (25 tests, all passing)
+- ✅ Unit tests for Docstrum (21 tests, all passing)
 - Test on single-column, multi-column layouts
 - Verify handling of skewed text
 - Validate performance (<100ms per page)
