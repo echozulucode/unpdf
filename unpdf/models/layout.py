@@ -110,6 +110,32 @@ class BoundingBox:
             and self.y1 >= other.y1
         )
 
+    def overlap_percentage(self, other: "BoundingBox") -> float:
+        """Calculate percentage of overlap between boxes.
+
+        Returns:
+            Percentage of this box that overlaps with other (0.0-1.0)
+        """
+        if not self.overlaps(other):
+            return 0.0
+
+        # Calculate intersection area
+        x_overlap = max(
+            0, min(self.x1, other.x1) - max(self.x0, other.x0)
+        )
+        y_overlap = max(
+            0, min(self.y1, other.y1) - max(self.y0, other.y0)
+        )
+        intersection_area = x_overlap * y_overlap
+
+        # Calculate this box's area
+        this_area = self.width * self.height
+
+        if this_area == 0:
+            return 0.0
+
+        return intersection_area / this_area
+
 
 @dataclass
 class Block:
