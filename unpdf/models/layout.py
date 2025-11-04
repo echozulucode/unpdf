@@ -36,6 +36,8 @@ class Style:
         style: Font style (e.g., "normal", "italic")
         color: RGB color tuple (0.0-1.0)
         monospace: Whether the font is monospace
+        strikethrough: Whether text has strikethrough
+        underline: Whether text is underlined
     """
 
     font: str | None = None
@@ -44,6 +46,8 @@ class Style:
     style: str | None = None
     color: tuple[float, float, float] | None = None
     monospace: bool = False
+    strikethrough: bool = False
+    underline: bool = False
 
 
 @dataclass

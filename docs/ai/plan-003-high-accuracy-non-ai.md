@@ -612,12 +612,23 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 - [ ] Images: `![alt](path)` with extracted alt text (deferred to 6.4)
 - [ ] Integration with DocumentProcessor output
 
-### 6.2 Style Preservation
-- [ ] Map font styles to Markdown emphasis
-- [ ] Preserve color via HTML when needed
-- [ ] Handle strikethrough, underline (HTML)
-- [ ] Maintain alignment hints (HTML/CSS)
-- [ ] Convert special characters properly
+### 6.2 Style Preservation ✅
+- [x] Map font styles to Markdown emphasis
+  - Bold: `**text**` (weight >= 700 or "bold")
+  - Italic: `*text*` (style == "italic")
+  - Bold+Italic: `***text***`
+  - Monospace: `` `text` ``
+- [x] Handle strikethrough (~~text~~)
+- [x] Handle underline (`<u>text</u>` HTML)
+- [x] Preserve color via HTML when needed (`<span style="color:#hex">`)
+  - Only for non-standard colors (not black/dark gray)
+  - RGB to hex conversion
+- [x] Comprehensive unit tests (22 tests, all passing)
+- [x] Ruff linting (100% pass)
+- [x] Black formatting (100% compliant)
+- [x] Style priority: monospace > bold+italic > bold/italic > strikethrough > underline > color
+- [ ] Maintain alignment hints (HTML/CSS) (deferred)
+- [ ] Convert special characters properly (deferred)
 
 ### 6.3 Table Formatting
 - [ ] Simple tables: GFM Markdown

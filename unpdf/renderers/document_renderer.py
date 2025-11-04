@@ -363,14 +363,14 @@ class MarkdownRenderer:
         return "\n".join(lines)
 
     def _apply_styles(self, text: str, style: Style | None) -> str:
-        """Apply text styles (bold, italic, etc.) to text.
+        """Apply text styles (bold, italic, strikethrough, etc.) to text.
 
         Args:
             text: The text to style
             style: Style object with formatting information
 
         Returns:
-            Text with Markdown formatting applied
+            Text with Markdown/HTML formatting applied
         """
         if not self.preserve_styles or not style:
             return text
@@ -388,16 +388,59 @@ class MarkdownRenderer:
         # Check if italic
         is_italic = style.style and style.style.lower() == "italic"
 
-        # Apply bold
-        if is_bold and not styled_text.startswith("**"):
-            styled_text = f"**{styled_text}**"
+        # Check for strikethrough
+        is_strikethrough = (
+            hasattr(style, "strikethrough") and style.strikethrough
+        ) or (hasattr(style, "style") and "strikethrough" in str(style.style).lower())
 
-        # Apply italic (but not if already bold-italic)
-        if is_italic and not styled_text.startswith("*"):
-            styled_text = f"***{text}***" if is_bold else f"*{styled_text}*"
+        # Check for underline
+        is_underline = (hasattr(style, "underline") and style.underline) or (
+            hasattr(style, "style") and "underline" in str(style.style).lower()
+        )
 
-        # Apply monospace (code)
+        # Apply monospace (code) first - highest priority
         if style.monospace and not styled_text.startswith("`"):
             styled_text = f"`{text}`"
+            return styled_text
+
+        # Apply bold and italic together for better handling
+        if is_bold and is_italic:
+            styled_text = f"***{styled_text}***"
+        elif is_bold and not styled_text.startswith("**"):
+            styled_text = f"**{styled_text}**"
+        elif is_italic and not styled_text.startswith("*"):
+            styled_text = f"*{styled_text}*"
+
+        # Apply strikethrough (using HTML since Markdown has limited support)
+        if is_strikethrough:
+            styled_text = f"~~{styled_text}~~"
+
+        # Apply underline (using HTML since Markdown doesn't support it)
+        if is_underline:
+            styled_text = f"<u>{styled_text}</u>"
+
+        # Apply color (using HTML span with inline styles)
+        if style.color and self._is_non_standard_color(style.color):
+            r, g, b = style.color
+            # Convert 0-1 range to 0-255
+            r_int = int(r * 255)
+            g_int = int(g * 255)
+            b_int = int(b * 255)
+            color_hex = f"#{r_int:02x}{g_int:02x}{b_int:02x}"
+            styled_text = f'<span style="color:{color_hex}">{styled_text}</span>'
 
         return styled_text
+
+    def _is_non_standard_color(self, color: tuple[float, float, float]) -> bool:
+        """Check if color is non-standard (not black or very dark).
+
+        Args:
+            color: RGB color tuple (0.0-1.0 range)
+
+        Returns:
+            True if color should be preserved (not standard black/dark gray)
+        """
+        r, g, b = color
+        # Consider colors black/dark gray if all components are close to 0
+        threshold = 0.2
+        return not (r < threshold and g < threshold and b < threshold)
