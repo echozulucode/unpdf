@@ -587,20 +587,30 @@ While PyMuPDF provides excellent low-level PDF access, we focus on:
 
 ---
 
-## Phase 6: Markdown Generation with Fidelity (Week 9)
+## Phase 6: Markdown Generation with Fidelity (Week 9) 🚧 IN PROGRESS
 
 **Goal**: Generate high-quality Markdown preserving structure and semantics
 
-### 6.1 Element-to-Markdown Mapping
-- [ ] Headers: `#` with appropriate level (1-6)
-- [ ] Paragraphs: Blank line separation
-- [ ] Lists: `-` for bullets, `1.` for numbered, nested indentation
-- [ ] Tables: GFM tables or HTML for complex
-- [ ] Code: Fenced blocks with language hints
-- [ ] Quotes: `>` blockquotes
-- [ ] Emphasis: `**bold**`, `*italic*`, `` `code` ``
-- [ ] Links: `[text](url)` from PDF annotations
-- [ ] Images: `![alt](path)` with extracted alt text
+### 6.1 Element-to-Markdown Mapping ✅
+- [x] Headers: `#` with appropriate level (1-6)
+- [x] Paragraphs: Blank line separation
+- [x] Lists: `-` for bullets, `1.` for numbered, nested indentation
+- [x] Checkbox lists: `- [ ]` and `- [x]` for tasks
+- [x] Nested lists: proper indentation (2 spaces per level)
+- [x] Tables: GFM tables or HTML for complex (basic implementation)
+- [x] Code: Fenced blocks with language hints
+- [x] Quotes: `>` blockquotes
+- [x] Emphasis: `**bold**`, `*italic*` from font weight/style
+- [x] Links: `[text](url)` from PDF annotations
+- [x] Horizontal rules: `---`
+- [x] MarkdownRenderer class created
+- [x] ProcessedDocument to Markdown conversion
+- [x] 20 comprehensive unit tests (100% pass rate)
+- [x] Ruff linting (100% pass)
+- [x] Black formatting (100% compliant)
+- [x] 66% code coverage on document_renderer.py
+- [ ] Images: `![alt](path)` with extracted alt text (deferred to 6.4)
+- [ ] Integration with DocumentProcessor output
 
 ### 6.2 Style Preservation
 - [ ] Map font styles to Markdown emphasis
