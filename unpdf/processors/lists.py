@@ -164,6 +164,7 @@ class ListProcessor:
                 is_ordered=False,
                 indent_level=indent_level,
                 y0=y0,
+                x0=x0,
                 page_number=page_number,
             )
 
@@ -177,6 +178,7 @@ class ListProcessor:
                 is_ordered=False,
                 indent_level=indent_level,
                 y0=y0,
+                x0=x0,
                 page_number=page_number,
             )
 
@@ -189,6 +191,7 @@ class ListProcessor:
                 is_ordered=False,
                 indent_level=indent_level,
                 y0=y0,
+                x0=x0,
                 page_number=page_number,
             )
 
@@ -203,6 +206,7 @@ class ListProcessor:
                 is_ordered=True,
                 indent_level=indent_level,
                 y0=y0,
+                x0=x0,
                 page_number=page_number,
             )
 
@@ -216,11 +220,12 @@ class ListProcessor:
                 is_ordered=False,
                 indent_level=indent_level,
                 y0=y0,
+                x0=x0,
                 page_number=page_number,
             )
 
         # Not a list item
-        return ParagraphElement(text=text, y0=y0, page_number=page_number)
+        return ParagraphElement(text=text, y0=y0, x0=x0, page_number=page_number)
 
     def _is_bullet_list(self, text: str) -> bool:
         """Check if text starts with a bullet character.

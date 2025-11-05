@@ -142,43 +142,63 @@ Current conversion has multiple issues that need to be addressed for MVP quality
 - Tables appear under correct headings
 - Ordered lists show correct numbering
 
-## Phase 3: Fix Frontmatter Detection
+## Phase 3: Fix Frontmatter Detection ✅
 
 **Objective:** Detect and preserve YAML frontmatter
 
-### Step 3.1: Add Frontmatter Detection
-- [ ] Detect YAML frontmatter at document start
-- [ ] Parse frontmatter key-value pairs
-- [ ] Store as document metadata
+**Status:** COMPLETE - NOT A BUG
 
-### Step 3.2: Render Frontmatter
-- [ ] Output frontmatter at start of markdown
-- [ ] Preserve original formatting
-- [ ] Handle edge cases (missing values, etc.)
+### Analysis
+- [x] Investigated missing YAML frontmatter
+- [x] Confirmed PDF does not contain frontmatter
+
+**Root Cause:** Obsidian (and most PDF generators) do not render YAML frontmatter in the PDF output. The frontmatter exists in the `.md` source but is intentionally excluded from the PDF as it's metadata, not visible content.
+
+**Decision:** This is NOT a bug in our converter. We cannot extract what doesn't exist in the PDF. PDF to Markdown converters cannot recover YAML frontmatter that was never rendered.
 
 **Success Criteria:**
-- YAML frontmatter appears in output
-- Frontmatter values match original
+- ✅ Confirmed frontmatter is not in PDF
+- ✅ Documented expected behavior
 
-## Phase 4: Fix Code Block Indentation
+## Phase 4: Fix Code Block Indentation ✅
 
 **Objective:** Preserve code formatting and indentation
 
-### Step 4.1: Improve Code Block Extraction
-- [ ] Debug indentation loss in code blocks
-- [ ] Check if spans preserve leading whitespace
-- [ ] Verify font detection for monospace
-- [ ] Test with multiple code block languages
+**Status:** COMPLETE
 
-### Step 4.2: Fix Whitespace Preservation
-- [ ] Preserve leading/trailing spaces in code
-- [ ] Maintain proper line structure
-- [ ] Handle tabs vs spaces consistently
+### Step 4.1: Improve Code Block Extraction ✅
+- [x] Debug indentation loss in code blocks
+  - Root cause: When merging InlineCodeElements into CodeBlockElements, we were joining text with `"\n".join()` which lost x-position info
+  - Solution: Calculate relative indentation from x0 positions (~6pt per space for monospace fonts)
+- [x] Check if spans preserve leading whitespace
+  - Spans don't include leading whitespace; indentation must be calculated from x0 coordinates
+- [x] Verify font detection for monospace
+  - Monospace detection working correctly
+- [x] Test with multiple code block languages
+  - Python: Proper 4-space indentation preserved
+  - JSON: Proper 2-space indentation preserved
+  - Bash: No indentation needed, working correctly
+
+### Step 4.2: Fix Whitespace Preservation ✅
+- [x] Preserve leading/trailing spaces in code
+  - Implemented `_reconstruct_code_with_indent()` function
+  - Calculates min_x0 as baseline
+  - Converts x-position difference to spaces (6pt ≈ 1 space)
+- [x] Maintain proper line structure
+  - Line breaks preserved correctly
+- [x] Handle tabs vs spaces consistently
+  - Using spaces consistently based on x-position
+
+### Implementation Details
+- Added `x0` field to base `Element` class to track horizontal position
+- Updated all processor classes to pass `x0` through when creating elements
+- Created `_reconstruct_code_with_indent()` helper to calculate indentation
+- Updated `_group_code_blocks()` to use new reconstruction function
 
 **Success Criteria:**
-- Python code block is syntactically valid
-- Indentation matches original
-- All code blocks maintain structure
+- ✅ Python code block is syntactically valid (4-space indent for docstring and return)
+- ✅ Indentation matches original
+- ✅ All code blocks maintain structure (Python, JSON, Bash all correct)
 
 ## Phase 5: Fix Inline Element Handling
 

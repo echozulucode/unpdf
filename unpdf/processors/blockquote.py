@@ -132,14 +132,14 @@ class BlockquoteProcessor:
 
         # Check if indented enough to be a quote
         if indent < self.quote_threshold:
-            return ParagraphElement(text=text, y0=y0, page_number=page_number)
+            return ParagraphElement(text=text, y0=y0, x0=x0, page_number=page_number)
 
         # Check if indented TOO much (likely not a blockquote but misplaced text)
         if indent > self.max_indent:
             logger.debug(
                 f"Skipping blockquote detection: indent={indent:.1f} > max={self.max_indent}"
             )
-            return ParagraphElement(text=text, y0=y0, page_number=page_number)
+            return ParagraphElement(text=text, y0=y0, x0=x0, page_number=page_number)
 
         # Calculate nesting level
         level = int((indent - self.quote_threshold) / self.nested_threshold)
@@ -150,7 +150,7 @@ class BlockquoteProcessor:
 
         logger.debug(f"Detected blockquote (level={level}): '{cleaned_text[:30]}...'")
         return BlockquoteElement(
-            text=cleaned_text, level=level, y0=y0, page_number=page_number
+            text=cleaned_text, level=level, y0=y0, x0=x0, page_number=page_number
         )
 
     def _remove_quote_marks(self, text: str) -> str:

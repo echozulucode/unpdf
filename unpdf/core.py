@@ -90,6 +90,7 @@ def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
                             merged_para = ParagraphElement(
                                 text=merged_text,
                                 y0=current.y0,
+                                x0=getattr(current, "x0", 0),
                                 page_number=getattr(current, "page_number", 1),
                             )
                             merged.append(merged_para)
@@ -100,6 +101,7 @@ def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
                     merged_para = ParagraphElement(
                         text=merged_text,
                         y0=current.y0,
+                        x0=getattr(current, "x0", 0),
                         page_number=getattr(current, "page_number", 1),
                     )
                     merged.append(merged_para)
@@ -130,6 +132,7 @@ def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
                     merged_para = ParagraphElement(
                         text=merged_text,
                         y0=current.y0,
+                        x0=getattr(current, "x0", 0),
                         page_number=getattr(current, "page_number", 1),
                     )
                     merged.append(merged_para)
@@ -141,6 +144,36 @@ def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
         i += 1
 
     return merged
+
+
+def _reconstruct_code_with_indent(code_elements: list[Any]) -> str:
+    """Reconstruct code block text with proper indentation.
+
+    Calculates relative indentation from x0 positions and converts to spaces.
+
+    Args:
+        code_elements: List of InlineCodeElement instances
+
+    Returns:
+        Code text with proper indentation
+    """
+    if not code_elements:
+        return ""
+
+    # Find the minimum x0 (leftmost position) as the baseline
+    min_x0 = min(getattr(elem, "x0", 0) for elem in code_elements)
+
+    # Reconstruct lines with indentation
+    lines = []
+    for elem in code_elements:
+        x0 = getattr(elem, "x0", 0)
+        # Calculate indent in points, convert to spaces (~6pt per space for monospace)
+        indent_pts = x0 - min_x0
+        indent_spaces = int(round(indent_pts / 6.0))
+        indented_line = " " * indent_spaces + elem.text
+        lines.append(indented_line)
+
+    return "\n".join(lines)
 
 
 def _group_code_blocks(elements: list[Any]) -> list[Any]:
@@ -176,7 +209,7 @@ def _group_code_blocks(elements: list[Any]) -> list[Any]:
             ):
                 # Gap too large or different page - flush buffer as code block
                 if len(code_buffer) >= 3:  # At least 3 lines for a code block
-                    text = "\n".join(c.text for c in code_buffer)
+                    text = _reconstruct_code_with_indent(code_buffer)
                     # Try to infer language from first few lines
                     from unpdf.processors.code import CodeProcessor
 
@@ -201,7 +234,7 @@ def _group_code_blocks(elements: list[Any]) -> list[Any]:
             # Non-code element - flush buffer first
             if code_buffer:
                 if len(code_buffer) >= 3:
-                    text = "\n".join(c.text for c in code_buffer)
+                    text = _reconstruct_code_with_indent(code_buffer)
                     from unpdf.processors.code import CodeProcessor
 
                     lang = CodeProcessor()._infer_language(text)
@@ -224,7 +257,7 @@ def _group_code_blocks(elements: list[Any]) -> list[Any]:
     # Flush remaining code buffer
     if code_buffer:
         if len(code_buffer) >= 3:
-            text = "\n".join(c.text for c in code_buffer)
+            text = _reconstruct_code_with_indent(code_buffer)
             from unpdf.processors.code import CodeProcessor
 
             lang = CodeProcessor()._infer_language(text)
@@ -483,6 +516,7 @@ def convert_pdf(
                     text=span["text"],
                     url=span["link_url"],
                     y0=span.get("y0", 0),
+                    x0=span.get("x0", 0),
                     page_number=span.get("page_number", 1),
                 )
                 elements.append(link_elem)  # type: ignore[arg-type]

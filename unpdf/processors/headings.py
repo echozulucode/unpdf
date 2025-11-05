@@ -27,6 +27,7 @@ class Element:
     text: str
     y0: float = 0.0
     page_number: int = 1
+    x0: float = 0.0
 
     def to_markdown(self) -> str:
         """Convert element to Markdown string.
@@ -200,6 +201,7 @@ class HeadingProcessor:
         font_size = span["font_size"]
         is_bold = span.get("is_bold", False)
         y0 = span.get("y0", 0.0)
+        x0 = span.get("x0", 0.0)
         page_number = span.get("page_number", 1)
 
         # Bold text at or above average size is likely a heading
@@ -215,11 +217,11 @@ class HeadingProcessor:
                 f"(size={font_size:.1f}pt, level={level})"
             )
             return HeadingElement(
-                text=text, level=level, y0=y0, page_number=page_number
+                text=text, level=level, y0=y0, x0=x0, page_number=page_number
             )
 
         # Regular paragraph
-        return ParagraphElement(text=text, y0=y0, page_number=page_number)
+        return ParagraphElement(text=text, y0=y0, x0=x0, page_number=page_number)
 
     def _calculate_level(self, font_size: float, is_bold: bool) -> int:
         """Calculate heading level based on font size.
