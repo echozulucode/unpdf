@@ -27,6 +27,122 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
+    """Merge inline code elements into adjacent paragraphs.
+
+    When inline code appears on the same line as paragraph text, it should
+    be embedded within the paragraph rather than being a separate element.
+
+    Args:
+        elements: List of processed elements
+
+    Returns:
+        List with inline code elements merged into paragraphs where appropriate
+    """
+    from unpdf.processors.code import InlineCodeElement
+    from unpdf.processors.headings import ParagraphElement
+
+    if not elements:
+        return elements
+
+    merged: list[Any] = []
+    i = 0
+
+    while i < len(elements):
+        current = elements[i]
+
+        # Check if this is a paragraph followed by inline code on same line
+        if isinstance(current, ParagraphElement) and i + 1 < len(elements):
+            next_elem = elements[i + 1]
+
+            if isinstance(next_elem, InlineCodeElement):
+                # Check if they're on the same line (within 5 points vertically)
+                if (
+                    hasattr(current, "y0")
+                    and hasattr(next_elem, "y0")
+                    and abs(current.y0 - next_elem.y0) < 5
+                    and getattr(current, "page_number", 0)
+                    == getattr(next_elem, "page_number", 0)
+                ):
+                    # Merge inline code into paragraph
+                    # Clean up whitespace around code
+                    before_text = current.text.rstrip()
+                    code_text = next_elem.text.strip()
+                    merged_text = f"{before_text} `{code_text}`"
+
+                    # Check if there's more text after the inline code
+                    if i + 2 < len(elements):
+                        after_elem = elements[i + 2]
+                        if (
+                            isinstance(after_elem, ParagraphElement)
+                            and hasattr(after_elem, "y0")
+                            and abs(next_elem.y0 - after_elem.y0) < 5
+                            and getattr(next_elem, "page_number", 0)
+                            == getattr(after_elem, "page_number", 0)
+                        ):
+                            # Merge all three: para + code + para
+                            after_text = after_elem.text.lstrip()
+                            # Check if we need a space before after_text
+                            if after_text and after_text[0] not in ".,;:!?)]}":
+                                merged_text = f"{before_text} `{code_text}` {after_text}"
+                            else:
+                                merged_text = f"{before_text} `{code_text}`{after_text}"
+                            merged_para = ParagraphElement(
+                                text=merged_text,
+                                y0=current.y0,
+                                page_number=getattr(current, "page_number", 1),
+                            )
+                            merged.append(merged_para)
+                            i += 3
+                            continue
+
+                    # Just para + code
+                    merged_para = ParagraphElement(
+                        text=merged_text,
+                        y0=current.y0,
+                        page_number=getattr(current, "page_number", 1),
+                    )
+                    merged.append(merged_para)
+                    i += 2
+                    continue
+
+        # Check if this is inline code followed by paragraph on same line
+        if isinstance(current, InlineCodeElement) and i + 1 < len(elements):
+            next_elem = elements[i + 1]
+
+            if isinstance(next_elem, ParagraphElement):
+                # Check if they're on the same line
+                if (
+                    hasattr(current, "y0")
+                    and hasattr(next_elem, "y0")
+                    and abs(current.y0 - next_elem.y0) < 5
+                    and getattr(current, "page_number", 0)
+                    == getattr(next_elem, "page_number", 0)
+                ):
+                    # Merge inline code into paragraph
+                    code_text = current.text.strip()
+                    after_text = next_elem.text.lstrip()
+                    # Check if we need a space before after_text
+                    if after_text and after_text[0] not in ".,;:!?)]}":
+                        merged_text = f"`{code_text}` {after_text}"
+                    else:
+                        merged_text = f"`{code_text}`{after_text}"
+                    merged_para = ParagraphElement(
+                        text=merged_text,
+                        y0=current.y0,
+                        page_number=getattr(current, "page_number", 1),
+                    )
+                    merged.append(merged_para)
+                    i += 2
+                    continue
+
+        # No merging, keep as-is
+        merged.append(current)
+        i += 1
+
+    return merged
+
+
 def _group_code_blocks(elements: list[Any]) -> list[Any]:
     """Group consecutive inline code elements into code blocks.
 
@@ -373,6 +489,9 @@ def convert_pdf(
 
             # If nothing else matched, it's a paragraph
             elements.append(heading_result)  # type: ignore[arg-type]
+
+        # Merge inline code into adjacent paragraphs on same line
+        elements = _merge_inline_code_into_paragraphs(elements)
 
         # Group consecutive inline code elements into code blocks
         elements = _group_code_blocks(elements)
