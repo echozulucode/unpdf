@@ -442,10 +442,14 @@ def convert_pdf(
                     page_tables = table_processor.extract_tables(page)
                     # Add page number to each table for proper ordering
                     for table in page_tables:
-                        # Store y0 (bottom edge) from bbox for vertical positioning
-                        # In PDF coords (y=0 at bottom), use bottom edge for reading order
-                        # This ensures tables sort correctly with their preceding headers
-                        table.y0 = table.bbox[1] if table.bbox else 0.0
+                        # Convert pdfplumber coords to PyMuPDF coords
+                        # pdfplumber: y=0 at top, bbox=(x0, top, x1, bottom)
+                        # PyMuPDF: y=0 at bottom, so y0 = page_height - pdfplumber_top
+                        # Use top edge for reading order positioning
+                        if table.bbox:
+                            table.y0 = page.height - table.bbox[1]  # Convert top to PyMuPDF coords
+                        else:
+                            table.y0 = 0.0
                         table.page_number = page_num_offset + page_idx
                     table_elements.extend(page_tables)
 

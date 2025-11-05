@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Compare original markdown with PDF conversion output."""
 
+import sys
 from pathlib import Path
 
-original = Path("example-obsidian/obsidian-input.md").read_text(encoding="utf-8")
-output = Path("example-obsidian/output-latest.md").read_text(encoding="utf-8")
+if len(sys.argv) >= 3:
+    original = Path(sys.argv[1]).read_text(encoding="utf-8")
+    output = Path(sys.argv[2]).read_text(encoding="utf-8")
+else:
+    original = Path("example-obsidian/obsidian-input.md").read_text(encoding="utf-8")
+    output = Path("example-obsidian/output-mvp.md").read_text(encoding="utf-8")
 
 print("=== CRITICAL ISSUES ===\n")
 
