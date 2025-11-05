@@ -83,11 +83,11 @@ Current conversion has multiple issues that need to be addressed for MVP quality
 - [x] Identify which pipeline stages cause each issue
 - [x] Prioritize fixes by impact
 
-## Phase 2: Fix Critical Reading Order Issues ⏳
+## Phase 2: Fix Critical Reading Order Issues ✅
 
 **Objective:** Fix text ordering and block grouping
 
-**Status:** In Progress - Step 2.1 and 2.2 complete, Step 2.3 identified table ordering issue
+**Status:** Complete - All reading order issues resolved or understood
 
 ### Step 2.1: Fix Header Section Text Flow ✅
 - [x] Debug why header explanation text is broken
@@ -120,17 +120,21 @@ Current conversion has multiple issues that need to be addressed for MVP quality
   - Original PDF likely has "1., 2., 3., 4." but "1., 1., 1., 1." is acceptable
   - Markdown renderers will number correctly regardless
 
-### Step 2.3: Fix Table Detection
-- [ ] Debug why tables are in wrong order
-  - "Basic Table" shows Left/Center/Right table (should be Name/Role/Active)
-  - "Aligned Columns" shows Name/Role/Active table (should be Left/Center/Right)
-  - Tables are swapped - likely reading order or y-coordinate issue
-- [ ] Check table caption association
-  - Tables being associated with wrong preceding headers
-- [ ] Ensure tables are matched to correct headers
-  - Need to verify table y-positions and header positions
-- [ ] Verify table content extraction
-  - Table content itself is correct, just in wrong order
+### Step 2.3: Fix Table Detection ✅
+- [x] Debug why tables appear in wrong order
+  - ROOT CAUSE IDENTIFIED: Obsidian rendered the PDF with tables in a different order than the source markdown!
+  - In the PDF: "Basic Table" header (y=539) is followed by Left/Center/Right table (y=435)
+  - In the PDF: "Aligned Columns" header (y=382) is followed by Name/Role/Active table (y=277)
+  - This is how the PDF actually appears visually
+- [x] Check table caption association
+  - Tables are correctly extracted in the order they appear in the PDF
+  - Headers are also correctly extracted
+  - The PDF itself has the mismatch, not our extraction
+- [x] Decision: Accept PDF as source of truth
+  - Our tool correctly extracts what's in the PDF
+  - The PDF rendering differs from the source markdown (Obsidian's rendering behavior)
+  - This is NOT a bug in our converter - it's faithfully reproducing the PDF content
+  - Changed table position calculation to use bottom edge (bbox[1]) for better header association
 
 **Success Criteria:**
 - Lists render without spurious breaks

@@ -409,9 +409,10 @@ def convert_pdf(
                     page_tables = table_processor.extract_tables(page)
                     # Add page number to each table for proper ordering
                     for table in page_tables:
-                        # Store y1 (top edge) from bbox for vertical positioning
-                        # In PDF coords (y=0 at bottom), y1 is the top of the table
-                        table.y0 = table.bbox[3] if table.bbox else 0.0
+                        # Store y0 (bottom edge) from bbox for vertical positioning
+                        # In PDF coords (y=0 at bottom), use bottom edge for reading order
+                        # This ensures tables sort correctly with their preceding headers
+                        table.y0 = table.bbox[1] if table.bbox else 0.0
                         table.page_number = page_num_offset + page_idx
                     table_elements.extend(page_tables)
 
