@@ -65,3 +65,6 @@ output/
 temp/
 !/tests/test_cases/*.md
 !/tests/test_cases/*.pdf
+/tests/test_cases/*_output.md
+test_results.txt
+test_run_output.txt

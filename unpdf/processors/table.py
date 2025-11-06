@@ -145,38 +145,42 @@ class TableProcessor:
     def __init__(
         self,
         table_settings: dict[str, Any] | None = None,
-        min_words_in_table: int = 2,
-        max_table_width_ratio: float = 0.95,
+        min_words_in_table: int = 6,
+        max_table_width_ratio: float = 0.85,
         min_columns: int = 2,
+        min_rows: int = 3,
     ) -> None:
         """Initialize table processor.
 
         Args:
             table_settings: Optional pdfplumber table settings override.
-            min_words_in_table: Minimum words required to consider as table.
+            min_words_in_table: Minimum words required to consider as table. Default: 6.
             max_table_width_ratio: Maximum width ratio (table_width/page_width) to avoid
-                detecting full-page content as a table. Default: 0.95 (95% of page).
+                detecting full-page content as a table. Default: 0.85 (85% of page).
             min_columns: Minimum number of columns for a valid table. Default: 2.
+            min_rows: Minimum number of rows for a valid table. Default: 3.
 
         Example:
             >>> processor = TableProcessor(
             ...     table_settings={"vertical_strategy": "lines"},
-            ...     min_words_in_table=3
+            ...     min_words_in_table=6
             ... )
         """
-        # Default table detection settings
+        # Default table detection settings - only use line-based detection
+        # to avoid phantom tables from text-based detection
         self.table_settings = table_settings or {
             "vertical_strategy": "lines",
             "horizontal_strategy": "lines",
             "intersection_tolerance": 3,
-            "min_words_vertical": 2,
+            "min_words_vertical": 3,
             "snap_tolerance": 3,
             "join_tolerance": 3,
-            "edge_min_length": 3,
+            "edge_min_length": 10,
         }
         self.min_words_in_table = min_words_in_table
         self.max_table_width_ratio = max_table_width_ratio
         self.min_columns = min_columns
+        self.min_rows = min_rows
 
         logger.debug(f"TableProcessor initialized with settings: {self.table_settings}")
 
@@ -198,20 +202,10 @@ class TableProcessor:
             2
         """
         try:
-            # First try line-based detection (for bordered tables)
+            # Use only line-based detection for bordered tables
+            # Text-based fallback disabled to prevent phantom table detection
+            # TODO: Implement smarter confidence-scored text-based detection
             tables = page.find_tables(table_settings=self.table_settings)
-
-            if not tables:
-                # Fallback: try text-based detection (for borderless tables)
-                relaxed_settings = {
-                    "vertical_strategy": "text",
-                    "horizontal_strategy": "text",
-                    "intersection_tolerance": 5,
-                    "min_words_vertical": 2,
-                    "snap_tolerance": 3,
-                }
-                tables = page.find_tables(table_settings=relaxed_settings)
-                logger.debug("Using relaxed (text-based) table detection")
 
             page_width = page.width
             table_elements = []
@@ -219,9 +213,9 @@ class TableProcessor:
             for table in tables:
                 extracted = table.extract()
 
-                # Filter out empty or too-small tables
-                if not extracted or len(extracted) < 2:
-                    logger.debug("Skipping table: too few rows")
+                # Check minimum row requirement
+                if not extracted or len(extracted) < self.min_rows:
+                    logger.debug(f"Skipping table: only {len(extracted) if extracted else 0} row(s), need {self.min_rows}")
                     continue
 
                 # Check column count

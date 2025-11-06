@@ -507,10 +507,12 @@ def convert_pdf(
                 elements.append(list_result)  # type: ignore[arg-type]
                 continue
 
-            quote_result = blockquote_processor.process(span)
-            if quote_result.__class__.__name__ != "ParagraphElement":
-                elements.append(quote_result)  # type: ignore[arg-type]
-                continue
+            # Blockquote detection disabled - too many false positives
+            # TODO: Improve blockquote detection accuracy before re-enabling
+            # quote_result = blockquote_processor.process(span)
+            # if quote_result.__class__.__name__ != "ParagraphElement":
+            #     elements.append(quote_result)  # type: ignore[arg-type]
+            #     continue
 
             # Check if span has a link annotation
             if span.get("link_url"):

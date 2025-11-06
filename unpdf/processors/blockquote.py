@@ -75,21 +75,24 @@ class BlockquoteProcessor:
     def __init__(
         self,
         base_indent: float = 52.0,
-        quote_threshold: float = 15.0,
+        quote_threshold: float = 25.0,
         nested_threshold: float = 30.0,
-        max_indent: float = 100.0,
+        max_indent: float = 200.0,
+        require_multiple_lines: bool = False,
     ):
         """Initialize BlockquoteProcessor.
 
         Args:
             base_indent: Normal left margin in points (default 52pt).
             quote_threshold: Minimum indent beyond base for blockquote.
-                Default 15pt.
+                Default 25pt (balanced to reduce false positives while detecting real quotes).
             nested_threshold: Additional indent per nesting level.
                 Default 30pt.
             max_indent: Maximum indent to consider as blockquote. Text with
                 indent beyond this is likely misplaced/formatted differently.
-                Default 100pt.
+                Default 200pt.
+            require_multiple_lines: If True, only detect blockquotes that span
+                multiple consecutive lines. Default False.
 
         Example:
             >>> processor = BlockquoteProcessor(base_indent=100.0)
@@ -100,7 +103,10 @@ class BlockquoteProcessor:
         self.quote_threshold = quote_threshold
         self.nested_threshold = nested_threshold
         self.max_indent = max_indent
+        self.require_multiple_lines = require_multiple_lines
         self.quote_chars = self.QUOTE_CHARS
+        self.consecutive_quote_lines = 0
+        self.last_was_quote = False
 
     def process(self, span: dict[str, Any]) -> BlockquoteElement | ParagraphElement:
         """Process text span and detect blockquotes.
