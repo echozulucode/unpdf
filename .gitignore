@@ -63,3 +63,5 @@ Thumbs.db
 !docs/**/*.md
 output/
 temp/
+!/tests/test_cases/*.md
+!/tests/test_cases/*.pdf
