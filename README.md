@@ -63,6 +63,9 @@ unpdf input.pdf -o output.md
 # Process directory
 unpdf docs/ --recursive
 
+# Check conversion accuracy (requires original markdown)
+unpdf input.pdf --check-accuracy original.md
+
 # Verbose output
 unpdf file.pdf --verbose
 ```

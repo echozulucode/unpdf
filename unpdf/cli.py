@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 
 from unpdf import __version__, convert_pdf
+from unpdf.accuracy.element_detector import ElementDetector
+from unpdf.accuracy.element_scorer import ElementScorer
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +142,13 @@ def main() -> int:
     )
 
     parser.add_argument(
+        "--check-accuracy",
+        metavar="ORIGINAL_MD",
+        type=Path,
+        help="Check conversion accuracy against original markdown file",
+    )
+
+    parser.add_argument(
         "--version",
         action="version",
         version=f"unpdf {__version__}",
@@ -172,6 +181,55 @@ def main() -> int:
             )
 
             logger.info(f"✓ Converted: {output_path}")
+
+            # Check accuracy if requested
+            if args.check_accuracy:
+                logger.info(f"\nChecking accuracy against: {args.check_accuracy}")
+                if not args.check_accuracy.exists():
+                    logger.error(
+                        f"Original markdown file not found: {args.check_accuracy}"
+                    )
+                    return 1
+
+                original_md = args.check_accuracy.read_text(encoding="utf-8")
+                converted_md = output_path.read_text(encoding="utf-8")
+
+                detector = ElementDetector()
+                scorer = ElementScorer()
+
+                original_elements = detector.detect(original_md)
+                converted_elements = detector.detect(converted_md)
+
+                accuracy = scorer.calculate_scores(
+                    converted_elements, original_elements
+                )
+
+                logger.info("\n=== Accuracy Report ===")
+                logger.info(
+                    f"Overall Accuracy: {accuracy.overall.accuracy_percentage:.1f}%"
+                )
+                logger.info(f"Precision: {accuracy.overall.precision:.1%}")
+                logger.info(f"Recall: {accuracy.overall.recall:.1%}")
+                logger.info(f"F1 Score: {accuracy.overall.f1_score:.1%}")
+                logger.info(
+                    f"\nElement Counts: {accuracy.total_detected} detected, "
+                    f"{accuracy.total_expected} expected"
+                )
+                logger.info(
+                    f"True Positives: {accuracy.overall.true_positives}, "
+                    f"False Positives: {accuracy.overall.false_positives}, "
+                    f"False Negatives: {accuracy.overall.false_negatives}"
+                )
+
+                logger.info("\nPer-Element Type Accuracy:")
+                for element_type, scores in accuracy.by_type.items():
+                    counts = accuracy.element_counts[element_type]
+                    if counts["expected"] > 0 or counts["detected"] > 0:
+                        logger.info(
+                            f"  {element_type.value}: {scores.accuracy_percentage:.1f}% "
+                            f"(detected: {counts['detected']}, expected: {counts['expected']})"
+                        )
+
             return 0
 
         # Directory
