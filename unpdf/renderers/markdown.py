@@ -90,7 +90,7 @@ def render_elements_to_markdown(elements: list[Any]) -> str:
 def render_spans_to_markdown(spans: list[dict[str, Any]]) -> str:
     """Render text spans with metadata to Markdown format.
 
-    Applies inline formatting (bold, italic) based on font metadata.
+    Applies inline formatting (bold, italic, strikethrough) based on font metadata.
     Groups text into paragraphs with blank line separation.
 
     Args:
@@ -118,6 +118,7 @@ def render_spans_to_markdown(spans: list[dict[str, Any]]) -> str:
         text = span["text"]
         is_bold = span.get("is_bold", False)
         is_italic = span.get("is_italic", False)
+        is_strikethrough = span.get("strikethrough", False)
         y_position = span.get("y0", 0)
 
         # Detect paragraph break (significant vertical gap)
@@ -130,7 +131,7 @@ def render_spans_to_markdown(spans: list[dict[str, Any]]) -> str:
                 current_paragraph = []
 
         # Apply inline formatting
-        formatted_text = _apply_inline_formatting(text, is_bold, is_italic)
+        formatted_text = _apply_inline_formatting(text, is_bold, is_italic, is_strikethrough)
         current_paragraph.append(formatted_text)
 
         last_y_position = y_position
@@ -143,7 +144,9 @@ def render_spans_to_markdown(spans: list[dict[str, Any]]) -> str:
     return "\n\n".join(markdown_parts)
 
 
-def _apply_inline_formatting(text: str, is_bold: bool, is_italic: bool) -> str:
+def _apply_inline_formatting(
+    text: str, is_bold: bool, is_italic: bool, is_strikethrough: bool = False
+) -> str:
     """Apply Markdown inline formatting to text.
 
     Preserves leading/trailing whitespace outside the formatting markers.
@@ -152,16 +155,19 @@ def _apply_inline_formatting(text: str, is_bold: bool, is_italic: bool) -> str:
         text: Text to format.
         is_bold: Whether to apply bold formatting.
         is_italic: Whether to apply italic formatting.
+        is_strikethrough: Whether to apply strikethrough formatting.
 
     Returns:
         Text with Markdown formatting applied.
 
     Example:
-        >>> _apply_inline_formatting("Hello", True, False)
+        >>> _apply_inline_formatting("Hello", True, False, False)
         '**Hello**'
-        >>> _apply_inline_formatting("Hello", True, True)
+        >>> _apply_inline_formatting("Hello", True, True, False)
         '***Hello***'
-        >>> _apply_inline_formatting(" Hello ", True, False)
+        >>> _apply_inline_formatting("Hello", False, False, True)
+        '~~Hello~~'
+        >>> _apply_inline_formatting(" Hello ", True, False, False)
         ' **Hello** '
     """
     if not text.strip():
@@ -172,14 +178,14 @@ def _apply_inline_formatting(text: str, is_bold: bool, is_italic: bool) -> str:
     leading_space = text[: len(text) - len(text.lstrip())]
     trailing_space = text[len(text.rstrip()) :]
 
-    # Handle combined formatting
-    if is_bold and is_italic:
-        formatted = f"***{stripped}***"
-    elif is_bold:
-        formatted = f"**{stripped}**"
-    elif is_italic:
-        formatted = f"*{stripped}*"
-    else:
-        formatted = stripped
+    # Handle combined formatting (order: strikethrough > bold > italic)
+    formatted = stripped
+    
+    if is_italic:
+        formatted = f"*{formatted}*"
+    if is_bold:
+        formatted = f"**{formatted}**"
+    if is_strikethrough:
+        formatted = f"~~{formatted}~~"
 
     return leading_space + formatted + trailing_space

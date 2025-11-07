@@ -72,10 +72,12 @@ class ParagraphElement(Element):
         text: Paragraph text content.
         is_bold: Whether text is bold.
         is_italic: Whether text is italic.
+        is_strikethrough: Whether text has strikethrough.
     """
 
     is_bold: bool = False
     is_italic: bool = False
+    is_strikethrough: bool = False
 
     def to_markdown(self) -> str:
         """Convert paragraph to Markdown.
@@ -96,7 +98,7 @@ class ParagraphElement(Element):
         text = self.text
 
         # If no formatting needed, return as-is
-        if not self.is_bold and not self.is_italic:
+        if not self.is_bold and not self.is_italic and not self.is_strikethrough:
             return text
 
         # Preserve leading/trailing whitespace
@@ -116,6 +118,10 @@ class ParagraphElement(Element):
             formatted = f"*{stripped}*"
         else:
             formatted = stripped
+        
+        # Apply strikethrough on top of other formatting
+        if self.is_strikethrough:
+            formatted = f"~~{formatted}~~"
 
         return leading_space + formatted + trailing_space
 
@@ -272,6 +278,7 @@ class HeadingProcessor:
 
         # Regular paragraph (including inline bold/italic at body size)
         is_italic = span.get("is_italic", False)
+        is_strikethrough = span.get("strikethrough", False)
         return ParagraphElement(
             text=text,
             y0=y0,
@@ -279,6 +286,7 @@ class HeadingProcessor:
             page_number=page_number,
             is_bold=is_bold,
             is_italic=is_italic,
+            is_strikethrough=is_strikethrough,
         )
 
     def _calculate_level(self, font_size: float, is_bold: bool) -> int:

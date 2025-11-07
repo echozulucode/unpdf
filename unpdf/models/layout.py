@@ -58,6 +58,7 @@ class Span:
         text: The text content
         bold: Whether text is bold
         italic: Whether text is italic
+        strikethrough: Whether text has strikethrough
         font_size: Font size in points
         font_name: Font family name
     """
@@ -65,6 +66,7 @@ class Span:
     text: str
     bold: bool = False
     italic: bool = False
+    strikethrough: bool = False
     font_size: float | None = None
     font_name: str | None = None
 

@@ -23,6 +23,7 @@ import pdfplumber
 import pymupdf  # type: ignore[import-untyped]
 
 from unpdf.processors.checkboxes import CheckboxDetector
+from unpdf.extractors.strikethrough import detect_strikethrough_on_page
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,13 @@ def extract_text_with_metadata(
                     f"Page {page_num}: Detected {len(page_checkboxes)} checkboxes"
                 )
 
+                # Extract lines and rects for strike-through detection
+                page_lines = page.lines if hasattr(page, 'lines') else []
+                page_rects = page.rects if hasattr(page, 'rects') else []
+                logger.debug(
+                    f"Page {page_num}: Extracted {len(page_lines)} lines and {len(page_rects)} rects for strikethrough detection"
+                )
+
                 # Extract characters with detailed metadata
                 chars = page.chars
 
@@ -241,13 +249,13 @@ def extract_text_with_metadata(
                 if current_span and current_span["text"].strip():
                     spans.append(current_span)
 
-                # Annotate spans with checkboxes for this page
-                # Filter spans for this page
+                # Get spans for this page
                 page_start_idx = len(spans) - sum(
                     1 for s in spans if s["page_number"] == page_num
                 )
                 page_spans = spans[page_start_idx:]
 
+                # Annotate spans with checkboxes for this page
                 if page_checkboxes and page_spans:
                     # Get page height for coordinate conversion
                     page_height = page.height
@@ -256,6 +264,22 @@ def extract_text_with_metadata(
                     )
                     # Update the spans in place
                     spans[page_start_idx:] = annotated
+                    page_spans = spans[page_start_idx:]
+
+                # Detect strike-through on this page
+                if page_spans:
+                    # Convert span coordinates to expected format (add 'top' and 'bottom')
+                    for span in page_spans:
+                        if 'top' not in span:
+                            span['top'] = span['y0']
+                        if 'bottom' not in span:
+                            span['bottom'] = span['y1']
+                    
+                    page_spans = detect_strikethrough_on_page(
+                        page_spans, page_lines, page_rects
+                    )
+                    # Update the spans in place
+                    spans[page_start_idx:] = page_spans
 
         logger.info(f"Extracted {len(spans)} text span(s) before filtering")
         
