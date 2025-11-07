@@ -28,85 +28,79 @@ logger = logging.getLogger(__name__)
 
 
 def _merge_spans_on_same_line(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Merge consecutive spans that are on the same line.
+    """Merge consecutive spans that are on the same line ONLY when appropriate.
+
+    This merges spans in specific cases:
+    - List markers (bullets/numbers) with adjacent text
+    - Checkboxes with adjacent text
     
-    This fixes issues where text with mixed formatting (e.g., bold bullet + regular text)
-    is extracted as separate spans but should be treated as one unit.
-    
+    Regular text with different formatting (bold, italic) is kept separate
+    to preserve inline formatting.
+
     Args:
         spans: List of text span dictionaries
-        
+
     Returns:
         List of merged spans
     """
     if not spans:
         return spans
-    
+
     merged = []
-    current_group: list[dict[str, Any]] = []
-    current_y0 = None
-    current_page = None
+    i = 0
     
-    for span in spans:
-        y0 = span.get("y0", 0)
-        page = span.get("page_number", 1)
+    while i < len(spans):
+        current = spans[i]
         
-        # Check if this span is on the same line as current group
-        # (within 2 points vertically and same page)
-        if current_y0 is not None and abs(y0 - current_y0) < 2 and page == current_page:
-            current_group.append(span)
-        else:
-            # Flush current group if it exists
-            if current_group:
-                merged_span = _merge_span_group(current_group)
-                merged.append(merged_span)
+        # Check if this is a list marker or checkbox that should be merged with next span
+        should_merge_with_next = False
+        if i + 1 < len(spans):
+            next_span = spans[i + 1]
             
-            # Start new group
-            current_group = [span]
-            current_y0 = y0
-            current_page = page
-    
-    # Don't forget the last group
-    if current_group:
-        merged_span = _merge_span_group(current_group)
-        merged.append(merged_span)
-    
-    return merged
-
-
-def _merge_span_group(group: list[dict[str, Any]]) -> dict[str, Any]:
-    """Merge a group of spans on the same line into a single span.
-    
-    Args:
-        group: List of spans to merge
+            # Check if on same line
+            same_line = (
+                abs(current.get("y0", 0) - next_span.get("y0", 0)) < 2
+                and current.get("page_number", 1) == next_span.get("page_number", 1)
+            )
+            
+            if same_line:
+                current_text = current["text"].strip()
+                
+                # Merge if current is a list marker
+                import re
+                is_bullet = current_text in ["•", "●", "○", "◦", "▪", "▫", "–", "-", "·", "►", "➢"]
+                is_number = bool(re.match(r"^\d+\.$", current_text))
+                is_checkbox = current_text.startswith("☐") or current_text.startswith("☑") or current_text.startswith("☒")
+                
+                should_merge_with_next = is_bullet or is_number or is_checkbox
         
-    Returns:
-        Single merged span
-    """
-    if len(group) == 1:
-        return group[0]
-    
-    # Use first span as base
-    merged = group[0].copy()
-    
-    # Concatenate text from all spans
-    merged["text"] = "".join(span["text"] for span in group)
-    
-    # Update bounding box to cover all spans
-    merged["x0"] = min(span.get("x0", 0) for span in group)
-    merged["y0"] = min(span.get("y0", 0) for span in group)
-    merged["x1"] = max(span.get("x1", 0) for span in group)
-    merged["y1"] = max(span.get("y1", 0) for span in group)
-    
-    # Use formatting from the majority of text
-    # (e.g., if most of the text is regular, treat as regular)
-    total_len = sum(len(span["text"]) for span in group)
-    bold_len = sum(len(span["text"]) for span in group if span.get("is_bold", False))
-    italic_len = sum(len(span["text"]) for span in group if span.get("is_italic", False))
-    
-    merged["is_bold"] = (bold_len / total_len) > 0.5 if total_len > 0 else False
-    merged["is_italic"] = (italic_len / total_len) > 0.5 if total_len > 0 else False
-    
+        if should_merge_with_next:
+            # Merge current with next
+            next_span = spans[i + 1]
+            merged_span = {
+                "text": current["text"] + next_span["text"],
+                "font_size": next_span.get("font_size", current.get("font_size", 12.0)),
+                "font_family": next_span.get("font_family", current.get("font_family", "")),
+                "is_bold": next_span.get("is_bold", False),
+                "is_italic": next_span.get("is_italic", False),
+                "x0": current.get("x0", 0),
+                "y0": current.get("y0", 0),
+                "x1": next_span.get("x1", 0),
+                "y1": next_span.get("y1", 0),
+                "page_number": current.get("page_number", 1),
+            }
+            # Copy other fields from next span (like strikethrough, etc.)
+            for key in next_span:
+                if key not in merged_span:
+                    merged_span[key] = next_span[key]
+            
+            merged.append(merged_span)
+            i += 2  # Skip both spans
+        else:
+            # Keep span as-is
+            merged.append(current)
+            i += 1
+
     return merged
 
 
@@ -188,6 +182,10 @@ def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
                         formatted = f"*{stripped}*"
                     else:
                         formatted = stripped
+                    
+                    # Apply strikethrough on top of other formatting
+                    if para.is_strikethrough:
+                        formatted = f"~~{formatted}~~"
 
                     # Add space before if needed (not first part, and previous doesn't end with space)
                     if parts and not parts[-1].endswith(" ") and text.startswith(" "):
