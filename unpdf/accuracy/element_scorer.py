@@ -212,3 +212,36 @@ class ElementScorer:
             false_positives=fp,
             false_negatives=fn,
         )
+
+
+def calculate_element_accuracy(expected_markdown: str, result_markdown: str) -> float:
+    r"""Calculate element-level accuracy between expected and result markdown.
+
+    Args:
+        expected_markdown: Ground truth markdown text
+        result_markdown: Generated markdown text
+
+    Returns:
+        Float representing accuracy (0.0 to 1.0)
+
+    Example:
+        >>> expected = "# Title\n\nParagraph text"
+        >>> result = "# Title\n\nParagraph text"
+        >>> accuracy = calculate_element_accuracy(expected, result)
+        >>> accuracy
+        1.0
+    """
+    from .element_detector import ElementDetector
+
+    detector = ElementDetector()
+    scorer = ElementScorer()
+
+    # Detect elements in both texts
+    expected_elements = detector.detect(expected_markdown)
+    result_elements = detector.detect(result_markdown)
+
+    # Calculate accuracy scores
+    scores = scorer.calculate_scores(result_elements, expected_elements)
+
+    # Return F1 score as overall accuracy
+    return scores.overall.f1_score

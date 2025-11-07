@@ -9,7 +9,7 @@ from typing import Any
 
 import pymupdf
 
-from unpdf.models.layout import Block, BlockType, Style
+from unpdf.models.layout import Block, BlockType, Span, Style
 from unpdf.processors.block_classifier import BlockClassifier, FontStatistics
 from unpdf.processors.checkboxes import CheckboxDetector
 from unpdf.processors.code import CodeProcessor
@@ -215,11 +215,14 @@ class DocumentProcessor:
     def _extract_blocks_from_page(self, page: pymupdf.Page) -> list[dict[str, Any]]:
         """Extract raw text blocks from a page using PyMuPDF.
 
+        Groups spans on the same baseline into single blocks while preserving
+        span-level formatting information.
+
         Args:
             page: PyMuPDF page object
 
         Returns:
-            List of block dictionaries with text and formatting info
+            List of block dictionaries with text, formatting, and spans info
         """
         blocks = []
         text_dict = page.get_text("dict")
@@ -227,17 +230,55 @@ class DocumentProcessor:
         for block in text_dict.get("blocks", []):
             if block.get("type") == 0:  # Text block
                 for line in block.get("lines", []):
-                    for span in line.get("spans", []):
-                        blocks.append(
-                            {
-                                "text": span.get("text", ""),
-                                "bbox": span.get("bbox", (0, 0, 0, 0)),
-                                "font": span.get("font", ""),
-                                "size": span.get("size", 12.0),
-                                "flags": span.get("flags", 0),
-                                "color": span.get("color", 0),
-                            }
+                    # Group all spans in the same line into a single block
+                    line_spans = line.get("spans", [])
+                    if not line_spans:
+                        continue
+
+                    # Collect all span information
+                    span_objects = []
+                    full_text = ""
+                    line_bbox = line.get("bbox", (0, 0, 0, 0))
+
+                    # Determine primary font properties (use first span or most common)
+                    primary_font = line_spans[0].get("font", "")
+                    primary_size = line_spans[0].get("size", 12.0)
+                    primary_flags = line_spans[0].get("flags", 0)
+
+                    for span in line_spans:
+                        span_text = span.get("text", "")
+                        span_font = span.get("font", "")
+                        span_size = span.get("size", 12.0)
+                        span_flags = span.get("flags", 0)
+
+                        # Check for bold/italic using font flags
+                        # Flags: bit 4 = bold (16), bit 1 = italic (2)
+                        is_bold = bool(span_flags & 16) or "bold" in span_font.lower()
+                        is_italic = bool(span_flags & 2) or "italic" in span_font.lower()
+
+                        # Create Span object
+                        span_obj = Span(
+                            text=span_text,
+                            bold=is_bold,
+                            italic=is_italic,
+                            font_size=span_size,
+                            font_name=span_font,
                         )
+                        span_objects.append(span_obj)
+                        full_text += span_text
+
+                    # Create a block representing the entire line
+                    blocks.append(
+                        {
+                            "text": full_text,
+                            "bbox": line_bbox,
+                            "font": primary_font,
+                            "size": primary_size,
+                            "flags": primary_flags,
+                            "color": line_spans[0].get("color", 0),
+                            "spans": span_objects,
+                        }
+                    )
 
         return blocks
 
@@ -263,14 +304,18 @@ class DocumentProcessor:
                 x1=bbox_tuple[2],
                 y1=bbox_tuple[3],
             )
-            text_blocks.append(
-                TextBlock(
-                    bbox=bbox,
-                    text=block["text"],
-                    font_size=block.get("size", 12.0),
-                    font_name=block.get("font", ""),
-                )
+            # Preserve spans if available
+            spans = block.get("spans", None)
+            text_block = TextBlock(
+                bbox=bbox,
+                text=block["text"],
+                font_size=block.get("size", 12.0),
+                font_name=block.get("font", ""),
             )
+            # Attach spans as an attribute
+            if spans:
+                text_block.spans = spans  # type: ignore
+            text_blocks.append(text_block)
         return text_blocks
 
     def _compute_font_statistics(self, blocks: list[dict[str, Any]]) -> FontStatistics:
@@ -332,11 +377,14 @@ class DocumentProcessor:
                 width=tb.bbox.x1 - tb.bbox.x0,
                 height=tb.bbox.y1 - tb.bbox.y0,
             )
+            # Preserve spans if available
+            spans = getattr(tb, "spans", None)
             block = Block(
                 block_type=BlockType.TEXT,
                 bbox=bbox,
                 content=tb.text,
                 style=Style(),
+                spans=spans,
             )
             classified.append(block)
 

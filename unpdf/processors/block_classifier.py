@@ -39,13 +39,14 @@ class BlockClassifier:
     """
 
     # Font size ratios relative to body text for header detection
+    # More lenient thresholds for PDFs with subtle size differences
     HEADING_SIZE_RATIOS = {
-        1: (2.0, 2.5),  # H1: 2.0-2.5× body
-        2: (1.5, 1.8),  # H2: 1.5-1.8× body
-        3: (1.2, 1.4),  # H3: 1.2-1.4× body
-        4: (1.1, 1.2),  # H4: 1.1-1.2× body
-        5: (1.0, 1.1),  # H5: 1.0-1.1× body (bold)
-        6: (0.9, 1.0),  # H6: 0.9-1.0× body (bold)
+        1: (1.4, 2.5),  # H1: 1.4-2.5× body (was 2.0-2.5)
+        2: (1.15, 1.4),  # H2: 1.15-1.4× body (was 1.5-1.8)
+        3: (1.05, 1.15),  # H3: 1.05-1.15× body (was 1.2-1.4)
+        4: (1.0, 1.05),  # H4: 1.0-1.05× body + bold
+        5: (0.95, 1.0),  # H5: 0.95-1.0× body + bold
+        6: (0.9, 0.95),  # H6: 0.9-0.95× body + bold
     }
 
     # Patterns for detecting list items
@@ -135,14 +136,17 @@ class BlockClassifier:
             return BlockType.LIST
 
         # Check for heading based on font size
+        # BUT: don't classify as heading if it has inline formatting (mixed bold/italic)
         if block.style and block.style.size:
-            heading_level = self._detect_heading_level(block.style, font_stats)
-            if heading_level:
-                # Store heading level in metadata
-                if block.metadata is None:
-                    block.metadata = {}
-                block.metadata["heading_level"] = heading_level
-                return BlockType.HEADING
+            # Skip heading detection if block has inline formatting
+            if not self._has_inline_formatting(block):
+                heading_level = self._detect_heading_level(block.style, font_stats)
+                if heading_level:
+                    # Store heading level in metadata
+                    if block.metadata is None:
+                        block.metadata = {}
+                    block.metadata["heading_level"] = heading_level
+                    return BlockType.HEADING
 
         # Check for blockquote
         if self._is_blockquote(content):
@@ -247,14 +251,37 @@ class BlockClassifier:
         # Check each heading level
         for level, (min_ratio, max_ratio) in self.HEADING_SIZE_RATIOS.items():
             if min_ratio <= ratio <= max_ratio:
-                # H5 and H6 require bold weight
-                if level >= 5:
-                    if self._is_bold(style):
+                # H4-H6 require bold weight or larger size
+                if level >= 4:
+                    # For H4-H6, require bold OR size > 1.15×
+                    if self._is_bold(style) or ratio > 1.15:
                         return level
                 else:
                     return level
 
         return None
+
+    def _has_inline_formatting(self, block: Block) -> bool:
+        """Check if block contains inline formatting (mixed bold/italic spans).
+
+        Blocks with inline formatting should not be classified as headers.
+
+        Args:
+            block: Block to check
+
+        Returns:
+            True if block has mixed formatting spans
+        """
+        if not block.spans or len(block.spans) <= 1:
+            return False
+
+        # Check if spans have different formatting
+        first_span = block.spans[0]
+        for span in block.spans[1:]:
+            if span.bold != first_span.bold or span.italic != first_span.italic:
+                return True
+
+        return False
 
     def _is_bold(self, style: Style) -> bool:
         """Check if style is bold.

@@ -257,14 +257,79 @@ def extract_text_with_metadata(
                     # Update the spans in place
                     spans[page_start_idx:] = annotated
 
-        logger.info(f"Extracted {len(spans)} text span(s)")
-        return spans
+        logger.info(f"Extracted {len(spans)} text span(s) before filtering")
+        
+        # Filter out page numbers (text near top/bottom margins that are just numbers)
+        filtered_spans = _filter_page_numbers(spans, pdf.pages)
+        logger.info(f"After filtering: {len(filtered_spans)} text span(s)")
+        
+        return filtered_spans
 
     except Exception as e:
         logger.error(f"Error extracting text from {pdf_path}: {e}")
         raise ValueError(f"Failed to extract text from PDF: {e}") from e
     finally:
         pymupdf_doc.close()
+
+
+def _filter_page_numbers(spans: list[dict[str, Any]], pages: list) -> list[dict[str, Any]]:
+    """Filter out likely page numbers from spans.
+    
+    Page numbers are typically:
+    - Short (1-4 characters)
+    - Numeric
+    - Located near page edges (top or bottom margin)
+    - Isolated (not near other text)
+    
+    Args:
+        spans: List of text spans
+        pages: List of pages for dimension info
+        
+    Returns:
+        Filtered list of spans without page numbers
+    """
+    if not spans:
+        return spans
+    
+    # Build page dimensions map
+    page_dims = {}
+    for i, page in enumerate(pages, start=1):
+        page_dims[i] = {
+            'width': page.width,
+            'height': page.height,
+        }
+    
+    filtered = []
+    for span in spans:
+        text = span['text'].strip()
+        page_num = span['page_number']
+        
+        # Get page dimensions
+        if page_num not in page_dims:
+            filtered.append(span)
+            continue
+        
+        page_height = page_dims[page_num]['height']
+        y0 = span['y0']  # In pdfplumber, y0 is from top of page (y0=0 at top)
+        
+        # Check if this looks like a page number
+        is_short = len(text) <= 4
+        is_numeric = text.isdigit() or text.replace('.', '').isdigit()
+        
+        # Near top (within 100 points from top edge, y0 < 100)
+        near_top = y0 < 100
+        
+        # Near bottom (within 100 points from bottom edge, y0 > height - 100)
+        near_bottom = y0 > (page_height - 100)
+        
+        # If it's short, numeric, and near an edge, likely a page number
+        if is_short and is_numeric and (near_bottom or near_top):
+            logger.debug(f"Filtering page number: '{text}' at y={y0} (page height={page_height})")
+            continue
+        
+        filtered.append(span)
+    
+    return filtered
 
 
 def _is_bold_font(font_name: str) -> bool:
@@ -334,33 +399,61 @@ def _should_continue_span(
 
 
 def calculate_average_font_size(spans: list[dict[str, Any]]) -> float:
-    """Calculate average font size from text spans.
+    """Calculate the most common (body) font size from text spans.
+
+    Uses the most frequently occurring font size rather than arithmetic average,
+    since we want to identify the body text size, not be skewed by headers.
 
     Args:
         spans: List of text spans with font metadata.
 
     Returns:
-        Average font size in points. Returns 12.0 if no spans.
+        Most common font size in points. Returns 12.0 if no spans.
 
     Example:
         >>> spans = extract_text_with_metadata(Path("doc.pdf"))
-        >>> avg_size = calculate_average_font_size(spans)
-        >>> print(f"Average font size: {avg_size:.1f}pt")
-        Average font size: 11.5pt
+        >>> body_size = calculate_average_font_size(spans)
+        >>> print(f"Body font size: {body_size:.1f}pt")
+        Body font size: 11.5pt
     """
     if not spans:
         return 12.0  # Default
 
-    # Weight by text length to avoid letting small annotations skew average
-    total_weighted_size = 0.0
-    total_length = 0
+    # Count occurrences of each font size (weighted by character count)
+    size_weights: dict[float, int] = {}
 
     for span in spans:
+        size = span["font_size"]
         text_length = len(span["text"])
-        total_weighted_size += span["font_size"] * text_length
-        total_length += text_length
+        size_weights[size] = size_weights.get(size, 0) + text_length
 
-    if total_length == 0:
+    if not size_weights:
         return 12.0
 
-    return total_weighted_size / total_length
+    # Return the size with the highest total character count
+    most_common_size = max(size_weights.items(), key=lambda x: x[1])[0]
+    return most_common_size
+
+
+def calculate_max_font_size(spans: list[dict[str, Any]]) -> float:
+    """Calculate the maximum font size from text spans.
+
+    This helps identify the largest heading font in the document.
+
+    Args:
+        spans: List of text spans with font metadata.
+
+    Returns:
+        Maximum font size in points. Returns 12.0 if no spans.
+
+    Example:
+        >>> spans = extract_text_with_metadata(Path("doc.pdf"))
+        >>> max_size = calculate_max_font_size(spans)
+        >>> print(f"Max font size: {max_size:.1f}pt")
+        Max font size: 24.0pt
+    """
+    if not spans:
+        return 12.0  # Default
+
+    max_size = max((span["font_size"] for span in spans), default=12.0)
+    return max_size

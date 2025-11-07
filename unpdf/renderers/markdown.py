@@ -45,13 +45,15 @@ def render_elements_to_markdown(elements: list[Any]) -> str:
 
     markdown_parts: list[str] = []
 
-    for element in elements:
+    for idx, element in enumerate(elements):
         # Get markdown representation from element
         md_text = element.to_markdown()
 
         element_type = element.__class__.__name__
 
-        # Add spacing around headings and tables
+        # Add spacing logic:
+        # - Blank lines around headings and tables
+        # - Blank lines between paragraphs on different lines
         if element_type in ("HeadingElement", "TableElement"):
             # Blank line before (except first element)
             if markdown_parts:
@@ -59,6 +61,19 @@ def render_elements_to_markdown(elements: list[Any]) -> str:
             markdown_parts.append(md_text)
             # Blank line after
             markdown_parts.append("")
+        elif element_type == "ParagraphElement":
+            # Add blank line between consecutive paragraphs if on different lines
+            if idx > 0:
+                prev_element = elements[idx - 1]
+                if prev_element.__class__.__name__ == "ParagraphElement":
+                    # Check vertical distance
+                    curr_y = getattr(element, "y0", 0)
+                    prev_y = getattr(prev_element, "y0", 0)
+
+                    # If vertical distance > 5 points, separate paragraphs
+                    if abs(curr_y - prev_y) > 5:
+                        markdown_parts.append("")
+            markdown_parts.append(md_text)
         else:
             markdown_parts.append(md_text)
 
@@ -131,6 +146,8 @@ def render_spans_to_markdown(spans: list[dict[str, Any]]) -> str:
 def _apply_inline_formatting(text: str, is_bold: bool, is_italic: bool) -> str:
     """Apply Markdown inline formatting to text.
 
+    Preserves leading/trailing whitespace outside the formatting markers.
+
     Args:
         text: Text to format.
         is_bold: Whether to apply bold formatting.
@@ -144,16 +161,25 @@ def _apply_inline_formatting(text: str, is_bold: bool, is_italic: bool) -> str:
         '**Hello**'
         >>> _apply_inline_formatting("Hello", True, True)
         '***Hello***'
+        >>> _apply_inline_formatting(" Hello ", True, False)
+        ' **Hello** '
     """
     if not text.strip():
         return text
 
+    # Preserve leading/trailing whitespace
+    stripped = text.strip()
+    leading_space = text[: len(text) - len(text.lstrip())]
+    trailing_space = text[len(text.rstrip()) :]
+
     # Handle combined formatting
     if is_bold and is_italic:
-        return f"***{text}***"
+        formatted = f"***{stripped}***"
     elif is_bold:
-        return f"**{text}**"
+        formatted = f"**{stripped}**"
     elif is_italic:
-        return f"*{text}*"
+        formatted = f"*{stripped}*"
     else:
-        return text
+        formatted = stripped
+
+    return leading_space + formatted + trailing_space

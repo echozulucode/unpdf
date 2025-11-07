@@ -30,10 +30,12 @@ class ListItemElement(Element):
         text: List item text content (without bullet/number).
         is_ordered: True for numbered lists, False for bullet lists.
         indent_level: Nesting level (0 = top level).
+        number: Item number for ordered lists (default 1).
     """
 
     is_ordered: bool = False
     indent_level: int = 0
+    number: int = 1
 
     def to_markdown(self) -> str:
         """Convert list item to Markdown.
@@ -45,12 +47,12 @@ class ListItemElement(Element):
             >>> item = ListItemElement("First", is_ordered=False)
             >>> item.to_markdown()
             '- First'
-            >>> item2 = ListItemElement("Second", is_ordered=True, indent_level=1)
+            >>> item2 = ListItemElement("Second", is_ordered=True, indent_level=1, number=2)
             >>> item2.to_markdown()
-            '  1. Second'
+            '  2. Second'
         """
         indent = "  " * self.indent_level  # 2 spaces per level (standard Markdown)
-        prefix = "1." if self.is_ordered else "-"
+        prefix = f"{self.number}." if self.is_ordered else "-"
         return f"{indent}{prefix} {self.text}"
 
 
@@ -119,6 +121,10 @@ class ListProcessor:
         self.list_indent_x0s = self.LIST_INDENT_X0S
         self.in_list_context = False
         self.last_header = ""
+        
+        # Track list numbering per indent level
+        # Key: (indent_level, is_ordered), Value: current number
+        self.list_counters: dict[tuple[int, bool], int] = {}
 
     def process(self, span: dict[str, Any]) -> ListItemElement | ParagraphElement:
         """Process text span and detect list items.
@@ -198,13 +204,26 @@ class ListProcessor:
         # Check for numbered list
         numbered_match = self.number_pattern.match(text)
         if numbered_match:
+            # Extract the number from the matched pattern
+            number_str = numbered_match.group(1).rstrip('.)')
+            try:
+                item_number = int(number_str)
+            except ValueError:
+                # Non-numeric (like roman numerals or letters) - use counter
+                item_number = self._get_next_number(indent_level, True)
+            
             # Remove the number prefix
             cleaned_text = text[numbered_match.end() :].strip()
-            logger.debug(f"Detected numbered item: '{cleaned_text[:30]}...'")
+            logger.debug(f"Detected numbered item #{item_number}: '{cleaned_text[:30]}...'")
+            
+            # Update counter for this indent level
+            self.list_counters[(indent_level, True)] = item_number
+            
             return ListItemElement(
                 text=cleaned_text,
                 is_ordered=True,
                 indent_level=indent_level,
+                number=item_number,
                 y0=y0,
                 x0=x0,
                 page_number=page_number,
@@ -285,15 +304,21 @@ class ListProcessor:
             >>> processor._calculate_indent_level(100.0)
             1
         """
-        if x0 <= self.base_indent:
+        # Allow some tolerance for base indent detection (within 5 points)
+        if abs(x0 - self.base_indent) <= 5:
             return 0
 
         # Calculate how many indent_threshold units beyond base
         indent_offset = x0 - self.base_indent
-        level = int(indent_offset / self.indent_threshold)
+        
+        # Only count as indented if offset is positive and meaningful
+        if indent_offset < 5:
+            return 0
+        
+        level = int(round(indent_offset / self.indent_threshold))
 
         # Cap at reasonable maximum
-        return min(level, 5)
+        return min(max(0, level), 5)
 
     def _looks_like_list_item(self, text: str, x0: float) -> bool:
         """Heuristic to detect list items without bullet markers.
@@ -333,7 +358,7 @@ class ListProcessor:
         """Update processor context based on section headers.
 
         This helps improve list detection by tracking whether we're
-        in a list section.
+        in a list section. Also resets list counters when entering new section.
 
         Args:
             header_text: Text of the current header.
@@ -347,3 +372,24 @@ class ListProcessor:
         lower_text = header_text.lower()
         self.in_list_context = ("list" in lower_text) or ("checklist" in lower_text)
         self.last_header = header_text
+        
+        # Reset list counters when entering new section
+        self.list_counters = {}
+    
+    def _get_next_number(self, indent_level: int, is_ordered: bool) -> int:
+        """Get next number for a list at given indent level.
+        
+        Args:
+            indent_level: Nesting level of the list
+            is_ordered: Whether this is an ordered list
+            
+        Returns:
+            Next number to use for this list item
+        """
+        key = (indent_level, is_ordered)
+        if key not in self.list_counters:
+            # Start new list at this level
+            return 1
+        else:
+            # Continue existing list
+            return self.list_counters[key] + 1

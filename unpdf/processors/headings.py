@@ -70,20 +70,54 @@ class ParagraphElement(Element):
 
     Attributes:
         text: Paragraph text content.
+        is_bold: Whether text is bold.
+        is_italic: Whether text is italic.
     """
+
+    is_bold: bool = False
+    is_italic: bool = False
 
     def to_markdown(self) -> str:
         """Convert paragraph to Markdown.
 
+        Preserves leading/trailing whitespace outside formatting markers.
+
         Returns:
-            Plain text without markup.
+            Text with inline formatting applied.
 
         Example:
-            >>> para = ParagraphElement("This is text.")
+            >>> para = ParagraphElement("This is text.", is_bold=True)
             >>> para.to_markdown()
-            'This is text.'
+            '**This is text.**'
+            >>> para = ParagraphElement(" text ", is_bold=True)
+            >>> para.to_markdown()
+            ' **text** '
         """
-        return self.text
+        text = self.text
+
+        # If no formatting needed, return as-is
+        if not self.is_bold and not self.is_italic:
+            return text
+
+        # Preserve leading/trailing whitespace
+        stripped = text.strip()
+        if not stripped:
+            return text
+
+        leading_space = text[: len(text) - len(text.lstrip())]
+        trailing_space = text[len(text.rstrip()) :]
+
+        # Apply inline formatting to stripped text
+        if self.is_bold and self.is_italic:
+            formatted = f"***{stripped}***"
+        elif self.is_bold:
+            formatted = f"**{stripped}**"
+        elif self.is_italic:
+            formatted = f"*{stripped}*"
+        else:
+            formatted = stripped
+
+        return leading_space + formatted + trailing_space
 
 
 @dataclass
@@ -139,6 +173,7 @@ class HeadingProcessor:
         avg_font_size: float,
         heading_ratio: float = 1.3,
         max_level: int = 6,
+        max_font_size: float | None = None,
     ):
         """Initialize HeadingProcessor.
 
@@ -147,6 +182,8 @@ class HeadingProcessor:
             heading_ratio: Font size multiplier for heading threshold.
                 Default 1.3 means text 30% larger is a heading.
             max_level: Maximum heading level (1-6). Default 6.
+            max_font_size: Maximum font size in document. If provided, ensures
+                the largest heading font becomes H1.
 
         Raises:
             ValueError: If max_level not between 1 and 6.
@@ -168,10 +205,14 @@ class HeadingProcessor:
         self.avg_font_size = avg_font_size
         self.heading_ratio = heading_ratio
         self.max_level = max_level
+        self.max_font_size = max_font_size
         self.threshold = avg_font_size * heading_ratio
 
         logger.debug(
             f"HeadingProcessor initialized: avg={avg_font_size:.1f}pt, "
+            f"max={max_font_size:.1f}pt, threshold={self.threshold:.1f}pt"
+            if max_font_size
+            else f"HeadingProcessor initialized: avg={avg_font_size:.1f}pt, "
             f"threshold={self.threshold:.1f}pt"
         )
 
@@ -204,30 +245,47 @@ class HeadingProcessor:
         x0 = span.get("x0", 0.0)
         page_number = span.get("page_number", 1)
 
-        # Bold text at or above average size is likely a heading
-        # OR text significantly larger than average (threshold)
-        if (
-            is_bold
-            and font_size >= (self.avg_font_size * 0.90)
-            or font_size >= self.threshold
-        ):
+        # Calculate size ratio
+        size_ratio = font_size / self.avg_font_size
+
+        # Only classify as heading if:
+        # 1. Size is significantly larger (>= 1.15× body size), OR
+        # 2. Bold AND size ratio >= 1.4 (40% larger)
+        # This prevents inline bold/italic at body size from being headers
+        is_heading = False
+        if size_ratio >= 1.15:
+            # Text is noticeably larger - likely a header
+            is_heading = True
+        elif is_bold and size_ratio >= 1.4:
+            # Bold AND significantly larger - likely a header
+            is_heading = True
+
+        if is_heading:
             level = self._calculate_level(font_size, is_bold)
             logger.debug(
                 f"Detected heading: '{text[:30]}...' "
-                f"(size={font_size:.1f}pt, level={level})"
+                f"(size={font_size:.1f}pt, ratio={size_ratio:.2f}, level={level})"
             )
             return HeadingElement(
                 text=text, level=level, y0=y0, x0=x0, page_number=page_number
             )
 
-        # Regular paragraph
-        return ParagraphElement(text=text, y0=y0, x0=x0, page_number=page_number)
+        # Regular paragraph (including inline bold/italic at body size)
+        is_italic = span.get("is_italic", False)
+        return ParagraphElement(
+            text=text,
+            y0=y0,
+            x0=x0,
+            page_number=page_number,
+            is_bold=is_bold,
+            is_italic=is_italic,
+        )
 
     def _calculate_level(self, font_size: float, is_bold: bool) -> int:
         """Calculate heading level based on font size.
 
         Larger text gets lower level numbers (H1 = largest).
-        Uses absolute font size ranges with some flexibility.
+        Uses relative size ratios for better adaptability.
 
         Args:
             font_size: Font size of the text in points.
@@ -237,41 +295,41 @@ class HeadingProcessor:
             Heading level from 1 (largest) to max_level.
 
         Note:
-            Font size mapping (approximate):
-            - 20pt+ and bold -> H1
-            - 18-20pt and bold -> H2
-            - 16-18pt and bold -> H3
-            - 14-16pt and bold -> H4
-            - 13-14pt and bold -> H5
-            - threshold+ -> H6 or adjust based on ratio
+            Size ratio mapping (relative to body font):
+            - >= 1.5× -> H1 (50% larger - major heading)
+            - >= 1.2× -> H2 (20% larger - section)
+            - >= 1.08× -> H3 (8% larger - subsection)
+            - >= 1.03× -> H4 (3% larger)
+            - >= 1.0× and bold -> H5 (same size, bold)
+            - >= 0.95× and bold -> H6 (slightly smaller, bold)
+
+            If max_font_size is provided, ensures the largest heading becomes H1.
         """
-        # For bold text, use absolute size ranges
-        if is_bold:
-            if font_size >= 21.0:
-                level = 1
-            elif font_size >= 18.5:
-                level = 2
-            elif font_size >= 16.5:
-                level = 3
-            elif font_size >= 14.8:
-                level = 4
-            elif font_size >= 13.2:
-                level = 5
-            else:
-                level = 6
+        size_ratio = font_size / self.avg_font_size
+
+        # If max_font_size provided, check if this is the largest heading
+        if self.max_font_size and font_size >= self.max_font_size * 0.95:
+            # This is the largest (or nearly largest) font - make it H1
+            return 1
+
+        # Use ratio-based classification
+        # Thresholds balanced for common PDF generators (Pandoc, Obsidian, etc.)
+        if size_ratio >= 1.5:
+            level = 1
+        elif size_ratio >= 1.2:
+            level = 2
+        elif size_ratio >= 1.08:
+            level = 3
+        elif size_ratio >= 1.0 and is_bold:
+            level = 4
+        elif size_ratio >= 0.95 and is_bold:
+            level = 5
+        elif is_bold:
+            level = 6
         else:
-            # Non-bold large text, use ratio-based approach
-            size_ratio = font_size / self.threshold
-            if size_ratio >= 2.0:
-                level = 1
-            elif size_ratio >= 1.7:
-                level = 2
-            elif size_ratio >= 1.4:
-                level = 3
-            elif size_ratio >= 1.2:
-                level = 4
-            else:
-                level = 5
+            # Not bold and not significantly larger - should not be a heading
+            # This shouldn't happen because process() filters these out
+            level = 6
 
         # Ensure within max_level
         level = min(level, self.max_level)

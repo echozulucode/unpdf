@@ -27,6 +27,89 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _merge_spans_on_same_line(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merge consecutive spans that are on the same line.
+    
+    This fixes issues where text with mixed formatting (e.g., bold bullet + regular text)
+    is extracted as separate spans but should be treated as one unit.
+    
+    Args:
+        spans: List of text span dictionaries
+        
+    Returns:
+        List of merged spans
+    """
+    if not spans:
+        return spans
+    
+    merged = []
+    current_group: list[dict[str, Any]] = []
+    current_y0 = None
+    current_page = None
+    
+    for span in spans:
+        y0 = span.get("y0", 0)
+        page = span.get("page_number", 1)
+        
+        # Check if this span is on the same line as current group
+        # (within 2 points vertically and same page)
+        if current_y0 is not None and abs(y0 - current_y0) < 2 and page == current_page:
+            current_group.append(span)
+        else:
+            # Flush current group if it exists
+            if current_group:
+                merged_span = _merge_span_group(current_group)
+                merged.append(merged_span)
+            
+            # Start new group
+            current_group = [span]
+            current_y0 = y0
+            current_page = page
+    
+    # Don't forget the last group
+    if current_group:
+        merged_span = _merge_span_group(current_group)
+        merged.append(merged_span)
+    
+    return merged
+
+
+def _merge_span_group(group: list[dict[str, Any]]) -> dict[str, Any]:
+    """Merge a group of spans on the same line into a single span.
+    
+    Args:
+        group: List of spans to merge
+        
+    Returns:
+        Single merged span
+    """
+    if len(group) == 1:
+        return group[0]
+    
+    # Use first span as base
+    merged = group[0].copy()
+    
+    # Concatenate text from all spans
+    merged["text"] = "".join(span["text"] for span in group)
+    
+    # Update bounding box to cover all spans
+    merged["x0"] = min(span.get("x0", 0) for span in group)
+    merged["y0"] = min(span.get("y0", 0) for span in group)
+    merged["x1"] = max(span.get("x1", 0) for span in group)
+    merged["y1"] = max(span.get("y1", 0) for span in group)
+    
+    # Use formatting from the majority of text
+    # (e.g., if most of the text is regular, treat as regular)
+    total_len = sum(len(span["text"]) for span in group)
+    bold_len = sum(len(span["text"]) for span in group if span.get("is_bold", False))
+    italic_len = sum(len(span["text"]) for span in group if span.get("is_italic", False))
+    
+    merged["is_bold"] = (bold_len / total_len) > 0.5 if total_len > 0 else False
+    merged["is_italic"] = (italic_len / total_len) > 0.5 if total_len > 0 else False
+    
+    return merged
+
+
 def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
     """Merge inline code elements into adjacent paragraphs.
 
@@ -45,15 +128,111 @@ def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
     if not elements:
         return elements
 
-    merged: list[Any] = []
+    # First pass: merge consecutive paragraph elements on same line
+    merged_paras: list[Any] = []
     i = 0
-
     while i < len(elements):
         current = elements[i]
 
+        # Check if this is a paragraph that can be merged with next paragraphs
+        if isinstance(current, ParagraphElement):
+            # Collect all consecutive paragraphs on the same line
+            line_paras = [current]
+            j = i + 1
+            while j < len(elements):
+                next_elem = elements[j]
+                if isinstance(next_elem, ParagraphElement):
+                    # Check if on same line (within 5 points vertically)
+                    if (
+                        hasattr(current, "y0")
+                        and hasattr(next_elem, "y0")
+                        and abs(current.y0 - next_elem.y0) < 5
+                        and getattr(current, "page_number", 0)
+                        == getattr(next_elem, "page_number", 0)
+                    ):
+                        line_paras.append(next_elem)
+                        j += 1
+                    else:
+                        break
+                else:
+                    break
+
+            # Merge if we found multiple paragraphs on same line
+            if len(line_paras) > 1:
+                # Build inline formatted text by combining spans intelligently
+                # Key insight: PDF extracts spaces as part of spans, so we need to
+                # normalize spacing between formatted pieces
+                parts = []
+                for idx, para in enumerate(line_paras):
+                    text = para.text
+                    stripped = text.strip()
+
+                    # Skip empty spans
+                    if not stripped:
+                        # Keep single space between non-empty spans
+                        if parts and idx < len(line_paras) - 1:
+                            # Check if next span has content
+                            next_text = line_paras[idx + 1].text.strip()
+                            if next_text:
+                                # Add space only if we don't already have one
+                                if not parts[-1].endswith(" "):
+                                    parts.append(" ")
+                        continue
+
+                    # Apply formatting to stripped text
+                    if para.is_bold and para.is_italic:
+                        formatted = f"***{stripped}***"
+                    elif para.is_bold:
+                        formatted = f"**{stripped}**"
+                    elif para.is_italic:
+                        formatted = f"*{stripped}*"
+                    else:
+                        formatted = stripped
+
+                    # Add space before if needed (not first part, and previous doesn't end with space)
+                    if parts and not parts[-1].endswith(" ") and text.startswith(" "):
+                        parts.append(" ")
+
+                    parts.append(formatted)
+
+                    # Add space after if original had trailing space and not last part
+                    if text.endswith(" ") and idx < len(line_paras) - 1:
+                        # Check if next part starts with space or is empty
+                        next_text = line_paras[idx + 1].text
+                        if not next_text.startswith(" ") and next_text.strip():
+                            parts.append(" ")
+
+                # Join parts
+                combined_text = "".join(parts)
+
+                # Create merged paragraph with NO formatting (already applied)
+                merged_para = ParagraphElement(
+                    text=combined_text,
+                    y0=current.y0,
+                    x0=getattr(current, "x0", 0),
+                    page_number=getattr(current, "page_number", 1),
+                    is_bold=False,  # Already formatted
+                    is_italic=False,
+                )
+                merged_paras.append(merged_para)
+                i = j
+            else:
+                merged_paras.append(current)
+                i += 1
+        else:
+            merged_paras.append(current)
+            i += 1
+
+    # Second pass: merge inline code into paragraphs
+    merged: list[Any] = []
+    i = 0
+
+    while i < len(merged_paras):
+        current = merged_paras[i]
+
         # Check if this is a paragraph followed by inline code on same line
-        if isinstance(current, ParagraphElement) and i + 1 < len(elements):
-            next_elem = elements[i + 1]
+        if isinstance(current, ParagraphElement) and i + 1 < len(merged_paras):
+            next_elem = merged_paras[i + 1]
 
             if isinstance(next_elem, InlineCodeElement):
                 # Check if they're on the same line (within 5 points vertically)
@@ -71,8 +250,8 @@ def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
                     merged_text = f"{before_text} `{code_text}`"
 
                     # Check if there's more text after the inline code
-                    if i + 2 < len(elements):
-                        after_elem = elements[i + 2]
+                    if i + 2 < len(merged_paras):
+                        after_elem = merged_paras[i + 2]
                         if (
                             isinstance(after_elem, ParagraphElement)
                             and hasattr(after_elem, "y0")
@@ -109,8 +288,8 @@ def _merge_inline_code_into_paragraphs(elements: list[Any]) -> list[Any]:
                     continue
 
         # Check if this is inline code followed by paragraph on same line
-        if isinstance(current, InlineCodeElement) and i + 1 < len(elements):
-            next_elem = elements[i + 1]
+        if isinstance(current, InlineCodeElement) and i + 1 < len(merged_paras):
+            next_elem = merged_paras[i + 1]
 
             if isinstance(next_elem, ParagraphElement):
                 # Check if they're on the same line
@@ -462,23 +641,50 @@ def convert_pdf(
         markdown = ""
     else:
         # Phase 3: Process spans into structured elements
-        from unpdf.extractors.text import calculate_average_font_size
+        from unpdf.extractors.text import (
+            calculate_average_font_size,
+            calculate_max_font_size,
+        )
         from unpdf.processors.headings import HeadingProcessor
         from unpdf.processors.lists import ListProcessor
 
         avg_font_size = calculate_average_font_size(spans) if spans else 12.0
+        max_font_size = calculate_max_font_size(spans) if spans else 12.0
+
+        # Merge spans on the same line (within 2 points vertically)
+        # This fixes issues where list markers and text are separate spans
+        spans = _merge_spans_on_same_line(spans)
+
+        # Calculate base indent for list detection
+        # Find the leftmost x0 that appears to be a list item
+        list_x0_candidates = []
+        for span in spans:
+            text = span["text"].strip()
+            # Check if it looks like a list item (has bullet or number prefix)
+            import re
+            has_bullet = any(text.startswith(c) for c in ["•", "●", "○", "◦", "▪", "▫", "–", "-", "·", "►", "➢"])
+            has_number = re.match(r"^\d+\.\s+", text)
+            if has_bullet or has_number:
+                list_x0_candidates.append(span.get("x0", 72.0))
+        
+        # Use the minimum list item x0 as base, or fall back to global min
+        if list_x0_candidates:
+            base_list_indent = min(list_x0_candidates)
+        else:
+            base_list_indent = min((span.get("x0", 72.0) for span in spans), default=72.0) if spans else 72.0
+
         heading_processor = HeadingProcessor(
-            avg_font_size=avg_font_size, heading_ratio=heading_font_ratio
+            avg_font_size=avg_font_size,
+            heading_ratio=heading_font_ratio,
+            max_font_size=max_font_size,
         )
-        list_processor = ListProcessor()
+        list_processor = ListProcessor(base_indent=base_list_indent, indent_threshold=20.0)
 
         # Phase 4: Import additional processors
-        from unpdf.processors.blockquote import BlockquoteProcessor
         from unpdf.processors.code import (
             CodeProcessor,
         )
 
-        blockquote_processor = BlockquoteProcessor()
         code_processor = CodeProcessor()
 
         elements = []

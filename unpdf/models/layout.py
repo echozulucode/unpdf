@@ -51,6 +51,25 @@ class Style:
 
 
 @dataclass
+class Span:
+    """A text span with formatting.
+
+    Attributes:
+        text: The text content
+        bold: Whether text is bold
+        italic: Whether text is italic
+        font_size: Font size in points
+        font_name: Font family name
+    """
+
+    text: str
+    bold: bool = False
+    italic: bool = False
+    font_size: float | None = None
+    font_name: str | None = None
+
+
+@dataclass
 class BoundingBox:
     """Bounding box coordinates.
 
@@ -180,6 +199,7 @@ class Block:
         confidence: Confidence score (0.0-1.0)
         metadata: Additional metadata
         children: Child blocks (for hierarchical structures)
+        spans: Optional list of formatted spans (for inline formatting)
     """
 
     block_type: BlockType
@@ -190,6 +210,7 @@ class Block:
     confidence: float = 1.0
     metadata: dict[str, Any] | None = None
     children: list["Block"] | None = None
+    spans: list[Span] | None = None
 
 
 @dataclass

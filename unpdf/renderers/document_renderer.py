@@ -166,11 +166,19 @@ class MarkdownRenderer:
         Returns:
             Markdown heading string
         """
-        level = block.metadata.get("level", 1) if block.metadata else 1
+        level = (
+            block.metadata.get("heading_level", block.metadata.get("level", 1))
+            if block.metadata
+            else 1
+        )
         level = max(1, min(6, level))  # Clamp to 1-6
 
-        text = str(block.content or "")
-        text = self._apply_styles(text, block.style)
+        # Check if block has span-level formatting
+        if block.spans and len(block.spans) > 0:
+            text = self._render_spans(block.spans)
+        else:
+            text = str(block.content or "")
+            text = self._apply_styles(text, block.style)
         prefix = "#" * level
 
         return f"\n{prefix} {text}\n"
@@ -184,8 +192,12 @@ class MarkdownRenderer:
         Returns:
             Markdown paragraph string
         """
-        text = str(block.content or "")
-        text = self._apply_styles(text, block.style)
+        # Check if block has span-level formatting
+        if block.spans and len(block.spans) > 0:
+            text = self._render_spans(block.spans)
+        else:
+            text = str(block.content or "")
+            text = self._apply_styles(text, block.style)
 
         # Check if this is a link
         if block.metadata and "url" in block.metadata:
@@ -193,6 +205,34 @@ class MarkdownRenderer:
             return f"[{text}]({url})\n"
 
         return f"{text}\n"
+
+    def _render_spans(self, spans: list) -> str:
+        """Render text with inline formatting from spans.
+
+        Args:
+            spans: List of Span objects with formatting information
+
+        Returns:
+            Text with markdown inline formatting
+        """
+        if not self.preserve_styles:
+            return "".join(span.text for span in spans)
+
+        parts = []
+        for span in spans:
+            text = span.text
+            
+            # Apply inline formatting based on span properties
+            if span.bold and span.italic:
+                text = f"***{text}***"
+            elif span.bold:
+                text = f"**{text}**"
+            elif span.italic:
+                text = f"*{text}*"
+            
+            parts.append(text)
+
+        return "".join(parts)
 
     def _render_list_item(self, block: Block) -> str:
         """Render a list item block.

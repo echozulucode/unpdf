@@ -149,6 +149,12 @@ def main() -> int:
     )
 
     parser.add_argument(
+        "--debug-structure",
+        action="store_true",
+        help="Save PDF structure dump to .structure.txt file for debugging",
+    )
+
+    parser.add_argument(
         "--version",
         action="version",
         version=f"unpdf {__version__}",
@@ -181,6 +187,14 @@ def main() -> int:
             )
 
             logger.info(f"✓ Converted: {output_path}")
+
+            # Generate structure dump if requested
+            if args.debug_structure:
+                from unpdf.debug import dump_pdf_structure
+
+                structure_path = output_path.with_suffix(".structure.txt")
+                dump_pdf_structure(args.input, structure_path)
+                logger.info(f"✓ Structure dump saved: {structure_path}")
 
             # Check accuracy if requested
             if args.check_accuracy:
@@ -261,6 +275,14 @@ def main() -> int:
                         heading_font_ratio=args.heading_ratio,
                         page_numbers=page_numbers,
                     )
+
+                    # Generate structure dump if requested
+                    if args.debug_structure:
+                        from unpdf.debug import dump_pdf_structure
+
+                        structure_path = output_path.with_suffix(".structure.txt")
+                        dump_pdf_structure(pdf_file, structure_path)
+
                     success_count += 1
 
                 except Exception as e:
