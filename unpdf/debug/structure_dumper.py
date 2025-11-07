@@ -122,6 +122,81 @@ def _dump_page(page: pymupdf.Page, page_num: int) -> list[str]:
         for idx, img in enumerate(images, 1):
             lines.extend(_dump_image(idx, img, page))
 
+    # Extract drawing objects (lines, rectangles from PyMuPDF)
+    drawings = page.get_drawings()
+    if drawings:
+        lines.append("")
+        lines.append(f"DRAWING OBJECTS (PyMuPDF): {len(drawings)}")
+        lines.append("")
+        
+        # Separate into lines, rectangles, and other shapes
+        horizontal_lines = []
+        vertical_lines = []
+        rectangles = []
+        other_shapes = []
+        
+        for drawing in drawings:
+            items = drawing.get("items", [])
+            rect = drawing.get("rect", ())
+            
+            # Check if it's a line (simple rectangle with very small height or width)
+            if len(rect) == 4:
+                x0, y0, x1, y1 = rect
+                width = abs(x1 - x0)
+                height = abs(y1 - y0)
+                
+                if height < 3 and width > 10:  # Horizontal line
+                    horizontal_lines.append(drawing)
+                elif width < 3 and height > 10:  # Vertical line
+                    vertical_lines.append(drawing)
+                elif width > 3 and height > 3:  # Rectangle (not a line)
+                    rectangles.append(drawing)
+                else:
+                    other_shapes.append(drawing)
+            else:
+                other_shapes.append(drawing)
+        
+        # Dump horizontal lines
+        if horizontal_lines:
+            lines.append(f"Horizontal Lines: {len(horizontal_lines)}")
+            for idx, line in enumerate(horizontal_lines[:20], 1):  # Limit to first 20
+                lines.extend(_dump_line(idx, line, "horizontal"))
+            if len(horizontal_lines) > 20:
+                lines.append(f"  ... ({len(horizontal_lines) - 20} more horizontal lines)")
+            lines.append("")
+        
+        # Dump vertical lines
+        if vertical_lines:
+            lines.append(f"Vertical Lines: {len(vertical_lines)}")
+            for idx, line in enumerate(vertical_lines[:20], 1):  # Limit to first 20
+                lines.extend(_dump_line(idx, line, "vertical"))
+            if len(vertical_lines) > 20:
+                lines.append(f"  ... ({len(vertical_lines) - 20} more vertical lines)")
+            lines.append("")
+        
+        # Dump rectangles
+        if rectangles:
+            lines.append(f"Rectangles: {len(rectangles)}")
+            for idx, rect in enumerate(rectangles[:20], 1):  # Limit to first 20
+                lines.extend(_dump_rectangle(idx, rect))
+            if len(rectangles) > 20:
+                lines.append(f"  ... ({len(rectangles) - 20} more rectangles)")
+            lines.append("")
+        
+        # Dump other shapes
+        if other_shapes:
+            lines.append(f"Other Shapes: {len(other_shapes)}")
+            for idx, shape in enumerate(other_shapes[:10], 1):  # Limit to first 10
+                rect = shape.get("rect", ())
+                if len(rect) == 4:
+                    x0, y0, x1, y1 = rect
+                    width = abs(x1 - x0)
+                    height = abs(y1 - y0)
+                    lines.append(f"  Shape #{idx}: ({x0:.1f},{y0:.1f}) -> ({x1:.1f},{y1:.1f}), size: {width:.1f}x{height:.1f}")
+            if len(other_shapes) > 10:
+                lines.append(f"  ... ({len(other_shapes) - 10} more shapes)")
+            lines.append("")
+
     return lines
 
 
@@ -344,3 +419,62 @@ def _format_flags(flags: int) -> str:
         flag_names.append("bold")
 
     return ", ".join(flag_names) if flag_names else "none"
+
+
+def _dump_line(idx: int, line_obj: dict[str, Any], orientation: str) -> list[str]:
+    """Dump a single line (horizontal or vertical)."""
+    lines = []
+    
+    rect = line_obj.get("rect", ())
+    if len(rect) == 4:
+        x0, y0, x1, y1 = rect
+        width = abs(x1 - x0)
+        height = abs(y1 - y0)
+        
+        lines.append(f"  Line #{idx} ({orientation}):")
+        lines.append(f"    Position: ({x0:.1f}, {y0:.1f}) → ({x1:.1f}, {y1:.1f})")
+        lines.append(f"    Size: {width:.1f} x {height:.1f} pt")
+        
+        # Show color if available
+        color = line_obj.get("color")
+        if color:
+            lines.append(f"    Color: {_format_color(color)}")
+        
+        # Show stroke width
+        width_val = line_obj.get("width")
+        if width_val:
+            lines.append(f"    Stroke width: {width_val:.2f}")
+    
+    return lines
+
+
+def _dump_rectangle(idx: int, rect_obj: dict[str, Any]) -> list[str]:
+    """Dump a single rectangle."""
+    lines = []
+    
+    rect = rect_obj.get("rect", ())
+    if len(rect) == 4:
+        x0, y0, x1, y1 = rect
+        width = abs(x1 - x0)
+        height = abs(y1 - y0)
+        
+        lines.append(f"  Rectangle #{idx}:")
+        lines.append(f"    Position: ({x0:.1f}, {y0:.1f}) → ({x1:.1f}, {y1:.1f})")
+        lines.append(f"    Size: {width:.1f} x {height:.1f} pt")
+        
+        # Show fill color if available
+        fill = rect_obj.get("fill")
+        if fill:
+            lines.append(f"    Fill: {_format_color(fill)}")
+        
+        # Show stroke color if available
+        color = rect_obj.get("color")
+        if color:
+            lines.append(f"    Stroke: {_format_color(color)}")
+        
+        # Show stroke width
+        width_val = rect_obj.get("width")
+        if width_val:
+            lines.append(f"    Stroke width: {width_val:.2f}")
+    
+    return lines
