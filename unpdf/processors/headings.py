@@ -278,7 +278,7 @@ class HeadingProcessor:
 
         # Regular paragraph (including inline bold/italic at body size)
         is_italic = span.get("is_italic", False)
-        is_strikethrough = span.get("strikethrough", False)
+        is_strikethrough = span.get("is_strikethrough", False)
         return ParagraphElement(
             text=text,
             y0=y0,
@@ -304,10 +304,10 @@ class HeadingProcessor:
 
         Note:
             Size ratio mapping (relative to body font):
-            - >= 1.5× -> H1 (50% larger - major heading)
-            - >= 1.2× -> H2 (20% larger - section)
-            - >= 1.08× -> H3 (8% larger - subsection)
-            - >= 1.03× -> H4 (3% larger)
+            - >= 1.7× -> H1 (70% larger - major heading)
+            - >= 1.4× -> H2 (40% larger - section)
+            - >= 1.2× -> H3 (20% larger - subsection)
+            - >= 1.08× -> H4 (8% larger)
             - >= 1.0× and bold -> H5 (same size, bold)
             - >= 0.95× and bold -> H6 (slightly smaller, bold)
 
@@ -322,16 +322,24 @@ class HeadingProcessor:
 
         # Use ratio-based classification
         # Thresholds balanced for common PDF generators (Pandoc, Obsidian, etc.)
-        if size_ratio >= 1.5:
+        if size_ratio >= 1.7:
             level = 1
-        elif size_ratio >= 1.2:
+        elif size_ratio >= 1.4:
             level = 2
-        elif size_ratio >= 1.08:
+        elif size_ratio >= 1.2:
             level = 3
-        elif size_ratio >= 1.0 and is_bold:
+        elif size_ratio >= 1.2:
+            level = 3
+        elif size_ratio >= 1.08:
             level = 4
-        elif size_ratio >= 0.95 and is_bold:
+        elif size_ratio >= 1.08:
+            level = 4
+        elif size_ratio >= 1.0 and is_bold:
             level = 5
+        elif size_ratio >= 1.0 and is_bold:
+            level = 5
+        elif size_ratio >= 0.95 and is_bold:
+            level = 6
         elif is_bold:
             level = 6
         else:

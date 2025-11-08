@@ -124,13 +124,13 @@ def detect_strikethrough_on_page(
         >>> spans = [{"x0": 10, "x1": 50, "top": 100, "bottom": 110, "text": "test"}]
         >>> lines = [{"x0": 9, "x1": 51, "y0": 105, "y1": 105}]
         >>> result = detect_strikethrough_on_page(spans, lines, [])
-        >>> result[0]["strikethrough"]
+        >>> result[0]["is_strikethrough"]
         True
     """
     for span in spans:
-        span["strikethrough"] = is_struck_span(span, lines, rects)
+        span["is_strikethrough"] = is_struck_span(span, lines, rects)
 
-    struck_count = sum(1 for s in spans if s.get("strikethrough", False))
+    struck_count = sum(1 for s in spans if s.get("is_strikethrough", False))
     if struck_count > 0:
         logger.info(f"Detected {struck_count} strike-through span(s) on page")
 

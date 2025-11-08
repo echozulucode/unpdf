@@ -102,7 +102,7 @@ class TestHeadingDetection:
     """Tests for heading classification."""
 
     def test_classify_h1(self, classifier: BlockClassifier) -> None:
-        """Test H1 detection (2.0-2.5× body)."""
+        """Test H1 detection (1.7-2.5× body)."""
         bbox = BoundingBox(x=0, y=0, width=100, height=20)
         block = Block(
             block_type=BlockType.TEXT,
@@ -121,7 +121,7 @@ class TestHeadingDetection:
         assert block.metadata["heading_level"] == 1
 
     def test_classify_h2(self, classifier: BlockClassifier) -> None:
-        """Test H2 detection (1.5-1.8× body)."""
+        """Test H2 detection (1.4-1.7× body)."""
         bbox = BoundingBox(x=0, y=0, width=100, height=20)
         block = Block(
             block_type=BlockType.TEXT,
@@ -159,10 +159,10 @@ class TestHeadingDetection:
         assert block.metadata["heading_level"] == 3
 
     def test_classify_h5_requires_bold(self, classifier: BlockClassifier) -> None:
-        """Test H5 requires bold weight."""
+        """Test H4/H5 require bold weight (or large size)."""
         bbox = BoundingBox(x=0, y=0, width=100, height=20)
 
-        # Without bold - should be TEXT
+        # Without bold - should be TEXT (size 1.083× not large enough alone)
         block = Block(
             block_type=BlockType.TEXT,
             bbox=bbox,
@@ -176,12 +176,12 @@ class TestHeadingDetection:
         block_type = classifier.classify_block(block, font_stats)
         assert block_type == BlockType.TEXT
 
-        # With bold - should be HEADING
+        # With bold - should be HEADING H4 (size 1.083× falls in H4 range 1.08-1.2×)
         block.style = Style(font="Arial", size=13.0, weight="bold")
         block_type = classifier.classify_block(block, font_stats)
         assert block_type == BlockType.HEADING
         assert block.metadata is not None
-        assert block.metadata["heading_level"] == 5
+        assert block.metadata["heading_level"] == 4
 
 
 class TestListDetection:

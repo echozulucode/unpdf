@@ -39,14 +39,14 @@ class BlockClassifier:
     """
 
     # Font size ratios relative to body text for header detection
-    # More lenient thresholds for PDFs with subtle size differences
+    # Updated to match HeadingProcessor thresholds for consistency
     HEADING_SIZE_RATIOS = {
-        1: (1.4, 2.5),  # H1: 1.4-2.5× body (was 2.0-2.5)
-        2: (1.15, 1.4),  # H2: 1.15-1.4× body (was 1.5-1.8)
-        3: (1.05, 1.15),  # H3: 1.05-1.15× body (was 1.2-1.4)
-        4: (1.0, 1.05),  # H4: 1.0-1.05× body + bold
-        5: (0.95, 1.0),  # H5: 0.95-1.0× body + bold
-        6: (0.9, 0.95),  # H6: 0.9-0.95× body + bold
+        1: (1.7, 2.5),  # H1: 1.7-2.5× body (70%+ larger - major heading)
+        2: (1.4, 1.7),  # H2: 1.4-1.7× body (40-70% larger - section)
+        3: (1.2, 1.4),  # H3: 1.2-1.4× body (20-40% larger - subsection)
+        4: (1.08, 1.2),  # H4: 1.08-1.2× body + bold (8-20% larger)
+        5: (1.0, 1.08),  # H5: 1.0-1.08× body + bold
+        6: (0.9, 1.0),  # H6: 0.9-1.0× body + bold
     }
 
     # Patterns for detecting list items
