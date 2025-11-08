@@ -87,16 +87,20 @@ def is_struck_span(
     # Check very flat rects used instead of lines
     for rc in rects:
         thickness = rc["height"]
-        # Use y0/y1 if available (actual PDF coordinates), otherwise fall back to top/bottom
-        rect_y0 = rc.get("y0", rc.get("top"))
-        rect_y1 = rc.get("y1", rc.get("bottom"))
-        y_mid = (rect_y0 + rect_y1) / 2
+        # Use pdfplumber coordinates (top/bottom) to match span coordinates
+        rect_top = rc.get("top")
+        rect_bottom = rc.get("bottom")
+        
+        if rect_top is None or rect_bottom is None:
+            continue
+            
+        y_mid = (rect_top + rect_bottom) / 2
 
         if thickness <= max_thickness and y_min <= y_mid <= y_max:
             if horizontally_covers(rc["x0"], rc["x1"]):
                 logger.debug(
                     f"Strike-through rect detected: span=({x0:.1f},{top:.1f},{x1:.1f},{bottom:.1f}), "
-                    f"rect=({rc['x0']:.1f},{rect_y0:.1f},{rc['x1']:.1f},{rect_y1:.1f})"
+                    f"rect=({rc['x0']:.1f},{rect_top:.1f},{rc['x1']:.1f},{rect_bottom:.1f})"
                 )
                 return True
 
@@ -126,9 +130,10 @@ def detect_strikethrough_on_page(
         True
     """
     for span in spans:
-        span["strikethrough"] = is_struck_span(span, lines, rects)
+        # Use lower threshold (40%) to handle cases where only part of a span is struck through
+        span["strikethrough"] = is_struck_span(span, lines, rects, min_cover=0.4)
 
-    struck_count = sum(1 for s in spans if s.get("strikethrough", False))
+    struck_count = sum(1 for s in spans if s.get("is_strikethrough", False))
     if struck_count > 0:
         logger.info(f"Detected {struck_count} strike-through span(s) on page")
 

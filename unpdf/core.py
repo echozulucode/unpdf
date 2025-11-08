@@ -649,6 +649,24 @@ def convert_pdf(
         avg_font_size = calculate_average_font_size(spans) if spans else 12.0
         max_font_size = calculate_max_font_size(spans) if spans else 12.0
 
+        # Analyze heading structure in the document
+        # Find distinct heading font sizes (bold text that's larger than body)
+        heading_font_sizes = set()
+        for span in spans:
+            if span.get("is_bold", False):
+                font_size = span.get("font_size", 0)
+                # Consider as potential heading if noticeably larger than body
+                if font_size >= avg_font_size * 1.05:  # At least 5% larger
+                    heading_font_sizes.add(round(font_size, 1))
+
+        # Sort from largest to smallest
+        font_size_levels = sorted(heading_font_sizes, reverse=True) if heading_font_sizes else None
+
+        if font_size_levels:
+            logger.debug(f"Detected {len(font_size_levels)} heading font size levels: {font_size_levels}")
+        else:
+            logger.debug("No distinct heading levels detected")
+
         # Merge spans on the same line (within 2 points vertically)
         # This fixes issues where list markers and text are separate spans
         spans = _merge_spans_on_same_line(spans)
@@ -675,6 +693,7 @@ def convert_pdf(
             avg_font_size=avg_font_size,
             heading_ratio=heading_font_ratio,
             max_font_size=max_font_size,
+            font_size_levels=font_size_levels,
         )
         list_processor = ListProcessor(base_indent=base_list_indent, indent_threshold=20.0)
 
@@ -743,76 +762,85 @@ def convert_pdf(
 
         # Merge tables and horizontal rules into elements at correct positions
         # All should appear in reading order based on page and y-position
-        if table_elements or hr_elements:
-            # Filter out text elements that overlap with table bounding boxes
-            # (to avoid duplicate content - pdfplumber extracts table cells as both text and tables)
-            def overlaps_table(elem: Any, tables: list[Any]) -> bool:
-                """Check if element overlaps with any table bounding box."""
-                if not hasattr(elem, "y0") or not hasattr(elem, "page_number"):
-                    return False
-
-                elem_page = elem.page_number
-                elem_y0 = elem.y0
-
-                # Check against all tables on same page
-                for table in tables:
-                    if table.page_number != elem_page:
-                        continue
-
-                    # Table bbox is (x0, y0, x1, y1)
-                    # Check if element's y0 falls within table's vertical range
-                    table_y0 = table.bbox[1]  # bottom
-                    table_y1 = table.bbox[3]  # top
-
-                    # Add small margin (5 points) to avoid edge cases
-                    if table_y0 - 5 <= elem_y0 <= table_y1 + 5:
-                        return True
-
+        
+        # Filter out text elements that overlap with table bounding boxes
+        # (to avoid duplicate content - pdfplumber extracts table cells as both text and tables)
+        def overlaps_table(elem: Any, tables: list[Any]) -> bool:
+            """Check if element overlaps with any table bounding box."""
+            if not hasattr(elem, "y0") or not hasattr(elem, "page_number"):
                 return False
 
-            # Filter out overlapping text elements
-            filtered_elements = [
-                elem for elem in elements if not overlaps_table(elem, table_elements)
+            elem_page = elem.page_number
+            elem_y0 = elem.y0  # PyMuPDF coords (y=0 at bottom)
+
+            # Check against all tables on same page
+            for table in tables:
+                if table.page_number != elem_page:
+                    continue
+
+                # Table bbox is in pdfplumber format: (x0, top, x1, bottom)
+                # Need to convert to PyMuPDF coords for comparison
+                # PyMuPDF: y=0 at bottom, so y0_pymupdf = page_height - y_pdfplumber
+                # We need page height - but we don't have it here
+                # Alternative: use table.y0 which is already converted
+                # table.y0 is the TOP of the table in PyMuPDF coords
+                
+                if not hasattr(table, 'bbox') or not table.bbox:
+                    continue
+                    
+                # Calculate table's vertical range in PyMuPDF coords
+                # table.bbox = (x0, top_pdfplumber, x1, bottom_pdfplumber)
+                # Assume page height of 792 (US Letter) - should work for most PDFs
+                # Better: calculate from bbox if possible
+                table_height_pdfplumber = table.bbox[3] - table.bbox[1]
+                table_y0_top = table.y0  # Top edge in PyMuPDF
+                table_y0_bottom = table_y0_top - table_height_pdfplumber  # Bottom edge in PyMuPDF
+
+                # Add small margin (5 points) to avoid edge cases
+                if table_y0_bottom - 5 <= elem_y0 <= table_y0_top + 5:
+                    return True
+
+            return False
+
+        # Filter out overlapping text elements
+        filtered_elements = [
+            elem for elem in elements if not overlaps_table(elem, table_elements)
+        ]
+
+        # Create a combined list with position info for ALL elements
+        all_elements: list[
+            tuple[
+                int,
+                float,
+                str,
+                CodeBlockElement
+                | InlineCodeElement
+                | ParagraphElement
+                | TableElement,
             ]
+        ] = []
 
-            # Create a combined list with position info
-            all_elements: list[
-                tuple[
-                    int,
-                    float,
-                    str,
-                    CodeBlockElement
-                    | InlineCodeElement
-                    | ParagraphElement
-                    | TableElement,
-                ]
-            ] = []
+        for elem in filtered_elements:
+            # Add position info for text elements
+            if hasattr(elem, "y0"):
+                all_elements.append((elem.page_number, elem.y0, "text", elem))
+            else:
+                # Fallback if no position info
+                all_elements.append((1, 0, "text", elem))
 
-            for elem in filtered_elements:
-                # Add position info for text elements
-                if hasattr(elem, "y0"):
-                    all_elements.append((elem.page_number, elem.y0, "text", elem))
-                else:
-                    # Fallback if no position info
-                    all_elements.append((1, 0, "text", elem))
+        for table in table_elements:
+            # Tables already have page_number and y0 from extraction
+            all_elements.append((table.page_number, table.y0, "table", table))
 
-            for table in table_elements:
-                # Tables already have page_number and y0 from extraction
-                all_elements.append((table.page_number, table.y0, "table", table))
+        for hr in hr_elements:
+            # Horizontal rules already have page_number and y0
+            all_elements.append((hr.page_number, hr.y0, "hr", hr))
 
-            for hr in hr_elements:
-                # Horizontal rules already have page_number and y0
-                all_elements.append((hr.page_number, hr.y0, "hr", hr))
+        # Always sort by page, then by y-position (descending, since y=0 is at bottom in PDF coords)
+        all_elements.sort(key=lambda x: (x[0], -x[1]))
 
-            # Sort by page, then by y-position (descending, since y=0 is at bottom in PDF coords)
-            all_elements.sort(key=lambda x: (x[0], -x[1]))
-
-            # Extract just the elements
-            elements = [elem for _, _, _, elem in all_elements]  # type: ignore[misc]
-        else:
-            # Just add tables and HRs at the end if no position info
-            elements.extend(table_elements)  # type: ignore[arg-type]
-            elements.extend(hr_elements)
+        # Extract just the elements
+        elements = [elem for _, _, _, elem in all_elements]  # type: ignore[misc]
 
         # Phase 3: Render elements to Markdown
         from unpdf.renderers.markdown import render_elements_to_markdown

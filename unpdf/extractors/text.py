@@ -268,16 +268,23 @@ def extract_text_with_metadata(
 
                 # Detect strike-through on this page
                 if page_spans:
-                    # Convert span coordinates to expected format (add 'top' and 'bottom')
+                    # Convert span coordinates to pdfplumber format (add 'top' and 'bottom')
+                    # NOTE: Chars have y0/y1 in PyMuPDF coords (y=0 at bottom)
+                    # but strikethrough detection expects top/bottom in pdfplumber coords (y=0 at top)
+                    page_height = page.height
                     for span in page_spans:
                         if 'top' not in span:
-                            span['top'] = span['y0']
+                            # Convert from PyMuPDF (y0) to pdfplumber (top)
+                            span['top'] = page_height - span['y1']  # y1 is top in PyMuPDF
                         if 'bottom' not in span:
-                            span['bottom'] = span['y1']
+                            # Convert from PyMuPDF (y1) to pdfplumber (bottom)
+                            span['bottom'] = page_height - span['y0']  # y0 is bottom in PyMuPDF
                     
                     page_spans = detect_strikethrough_on_page(
                         page_spans, page_lines, page_rects
                     )
+                    # Update the spans in place
+                    spans[page_start_idx:] = page_spans
                     # Update the spans in place
                     spans[page_start_idx:] = page_spans
 

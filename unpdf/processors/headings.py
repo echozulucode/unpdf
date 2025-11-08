@@ -180,6 +180,7 @@ class HeadingProcessor:
         heading_ratio: float = 1.3,
         max_level: int = 6,
         max_font_size: float | None = None,
+        font_size_levels: list[float] | None = None,
     ):
         """Initialize HeadingProcessor.
 
@@ -190,6 +191,9 @@ class HeadingProcessor:
             max_level: Maximum heading level (1-6). Default 6.
             max_font_size: Maximum font size in document. If provided, ensures
                 the largest heading font becomes H1.
+            font_size_levels: List of distinct heading font sizes found in document,
+                sorted from largest to smallest. If provided, maps these to heading
+                levels 1, 2, 3, etc.
 
         Raises:
             ValueError: If max_level not between 1 and 6.
@@ -212,6 +216,7 @@ class HeadingProcessor:
         self.heading_ratio = heading_ratio
         self.max_level = max_level
         self.max_font_size = max_font_size
+        self.font_size_levels = font_size_levels
         self.threshold = avg_font_size * heading_ratio
 
         logger.debug(
@@ -278,7 +283,7 @@ class HeadingProcessor:
 
         # Regular paragraph (including inline bold/italic at body size)
         is_italic = span.get("is_italic", False)
-        is_strikethrough = span.get("is_strikethrough", False)
+        is_strikethrough = span.get("strikethrough", False)  # Note: field is 'strikethrough' not 'is_strikethrough'
         return ParagraphElement(
             text=text,
             y0=y0,
@@ -303,16 +308,18 @@ class HeadingProcessor:
             Heading level from 1 (largest) to max_level.
 
         Note:
-            Size ratio mapping (relative to body font):
-            - >= 1.7× -> H1 (70% larger - major heading)
-            - >= 1.4× -> H2 (40% larger - section)
-            - >= 1.2× -> H3 (20% larger - subsection)
-            - >= 1.08× -> H4 (8% larger)
-            - >= 1.0× and bold -> H5 (same size, bold)
-            - >= 0.95× and bold -> H6 (slightly smaller, bold)
-
-            If max_font_size is provided, ensures the largest heading becomes H1.
+            If font_size_levels is provided, maps font sizes to levels directly.
+            Otherwise uses ratio-based classification.
         """
+        # If we have explicit font size levels from document analysis, use them
+        if self.font_size_levels:
+            # Find which level this font size maps to
+            tolerance = 0.5  # Allow 0.5pt difference
+            for level_idx, level_size in enumerate(self.font_size_levels):
+                if abs(font_size - level_size) < tolerance:
+                    return min(level_idx + 1, self.max_level)
+            # If not found in levels, fall back to ratio-based
+        
         size_ratio = font_size / self.avg_font_size
 
         # If max_font_size provided, check if this is the largest heading
@@ -343,5 +350,7 @@ class HeadingProcessor:
 
         # Ensure within max_level
         level = min(level, self.max_level)
+
+        return level
 
         return level
