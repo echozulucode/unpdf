@@ -68,11 +68,9 @@ def is_struck_span(
     def horizontally_covers(obj_x0: float, obj_x1: float) -> bool:
         """Check if object horizontally overlaps text span by min_cover fraction."""
         overlap = max(0, min(x1, obj_x1) - max(x0, obj_x0))
-        # Check if overlap is significant relative to EITHER the span OR the object
-        # This handles cases where strike line is shorter than the full text span
+        # Check if overlap is significant relative to the span width
         span_width = x1 - x0
-        obj_width = obj_x1 - obj_x0
-        return overlap >= min_len or overlap / obj_width >= min_cover
+        return overlap >= min_len
 
     # Check lines
     for ln in lines:
@@ -124,13 +122,13 @@ def detect_strikethrough_on_page(
         >>> spans = [{"x0": 10, "x1": 50, "top": 100, "bottom": 110, "text": "test"}]
         >>> lines = [{"x0": 9, "x1": 51, "y0": 105, "y1": 105}]
         >>> result = detect_strikethrough_on_page(spans, lines, [])
-        >>> result[0]["is_strikethrough"]
+        >>> result[0]["strikethrough"]
         True
     """
     for span in spans:
-        span["is_strikethrough"] = is_struck_span(span, lines, rects)
+        span["strikethrough"] = is_struck_span(span, lines, rects)
 
-    struck_count = sum(1 for s in spans if s.get("is_strikethrough", False))
+    struck_count = sum(1 for s in spans if s.get("strikethrough", False))
     if struck_count > 0:
         logger.info(f"Detected {struck_count} strike-through span(s) on page")
 

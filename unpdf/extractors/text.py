@@ -423,16 +423,16 @@ def _should_continue_span(
 
 
 def calculate_average_font_size(spans: list[dict[str, Any]]) -> float:
-    """Calculate the most common (body) font size from text spans.
+    """Calculate the weighted average font size from text spans.
 
-    Uses the most frequently occurring font size rather than arithmetic average,
-    since we want to identify the body text size, not be skewed by headers.
+    Weights each font size by the length of text in that size,
+    providing a more accurate estimate of the body font size.
 
     Args:
         spans: List of text spans with font metadata.
 
     Returns:
-        Most common font size in points. Returns 12.0 if no spans.
+        Weighted average font size in points. Returns 12.0 if no spans.
 
     Example:
         >>> spans = extract_text_with_metadata(Path("doc.pdf"))
@@ -443,20 +443,19 @@ def calculate_average_font_size(spans: list[dict[str, Any]]) -> float:
     if not spans:
         return 12.0  # Default
 
-    # Count occurrences of each font size (weighted by character count)
-    size_weights: dict[float, int] = {}
+    total_weight = 0
+    weighted_sum = 0.0
 
     for span in spans:
         size = span["font_size"]
         text_length = len(span["text"])
-        size_weights[size] = size_weights.get(size, 0) + text_length
+        weighted_sum += size * text_length
+        total_weight += text_length
 
-    if not size_weights:
+    if total_weight == 0:
         return 12.0
 
-    # Return the size with the highest total character count
-    most_common_size = max(size_weights.items(), key=lambda x: x[1])[0]
-    return most_common_size
+    return weighted_sum / total_weight
 
 
 def calculate_max_font_size(spans: list[dict[str, Any]]) -> float:
