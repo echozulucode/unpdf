@@ -92,11 +92,11 @@ def test_heading_processor_level_calculation():
     assert isinstance(result_h2, HeadingElement)
     assert 2 <= result_h2.level <= 4
 
-    # Just above threshold = higher level number
-    span_h5 = {"text": "Small heading", "font_size": 16.0, "is_bold": False}
-    result_h5 = processor.process(span_h5)
-    assert isinstance(result_h5, HeadingElement)
-    assert result_h5.level >= 4
+    # Just above threshold = higher level number (but still relatively large at 1.33x body)
+    span_h3 = {"text": "Small heading", "font_size": 16.0, "is_bold": False}
+    result_h3 = processor.process(span_h3)
+    assert isinstance(result_h3, HeadingElement)
+    assert result_h3.level == 3  # 1.33x ratio maps to H3
 
 
 def test_heading_processor_bold_affects_level():

@@ -157,15 +157,19 @@ class BlockClassifier:
         # Check for heading based on font size
         # Handle both Block.style.size and TextBlock.font_size
         font_size = None
-        if hasattr(block, 'style') and block.style and block.style.size:
+        is_bold = False
+        
+        if hasattr(block, 'style') and block.style:
             font_size = block.style.size
+            is_bold = block.style.weight in ('bold', 'Bold', 700, 800, 900) if block.style.weight else False
         elif hasattr(block, 'font_size'):
             font_size = block.font_size
+            is_bold = getattr(block, 'is_bold', False)
             
         if font_size:
             # Skip heading detection if block has inline formatting (only for Block type)
             if hasattr(block, 'metadata') and not self._has_inline_formatting(block):
-                heading_level = self._detect_heading_level_from_size(font_size, font_stats)
+                heading_level = self._detect_heading_level_from_size(font_size, font_stats, is_bold)
                 if heading_level:
                     # Store heading level in metadata if available
                     if block.metadata is None:
@@ -174,7 +178,7 @@ class BlockClassifier:
                     return BlockType.HEADING
             else:
                 # For TextBlock, just check size
-                heading_level = self._detect_heading_level_from_size(font_size, font_stats)
+                heading_level = self._detect_heading_level_from_size(font_size, font_stats, is_bold)
                 if heading_level:
                     return BlockType.HEADING
 
@@ -185,12 +189,13 @@ class BlockClassifier:
         # Default to text/paragraph
         return BlockType.TEXT
     
-    def _detect_heading_level_from_size(self, font_size: float, font_stats: FontStatistics) -> int | None:
+    def _detect_heading_level_from_size(self, font_size: float, font_stats: FontStatistics, is_bold: bool = False) -> int | None:
         """Detect heading level based on font size.
         
         Args:
             font_size: Font size to check
             font_stats: Font statistics for context
+            is_bold: Whether the text is bold (required for H4-H6)
             
         Returns:
             Heading level (1-6) or None if not a heading
@@ -198,8 +203,12 @@ class BlockClassifier:
         ratio = font_size / font_stats.body_size
         
         # Check each heading level
+        # H1-H3 don't require bold, H4-H6 do
         for level, (min_ratio, max_ratio) in self.HEADING_SIZE_RATIOS.items():
             if min_ratio <= ratio < max_ratio:
+                # H4-H6 require bold
+                if level >= 4 and not is_bold:
+                    continue
                 return level
                 
         return None

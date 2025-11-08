@@ -328,14 +328,8 @@ class HeadingProcessor:
             level = 2
         elif size_ratio >= 1.2:
             level = 3
-        elif size_ratio >= 1.2:
-            level = 3
         elif size_ratio >= 1.08:
             level = 4
-        elif size_ratio >= 1.08:
-            level = 4
-        elif size_ratio >= 1.0 and is_bold:
-            level = 5
         elif size_ratio >= 1.0 and is_bold:
             level = 5
         elif size_ratio >= 0.95 and is_bold:

@@ -145,7 +145,7 @@ class TableProcessor:
     def __init__(
         self,
         table_settings: dict[str, Any] | None = None,
-        min_words_in_table: int = 6,
+        min_words_in_table: int = 2,
         max_table_width_ratio: float = 0.85,
         min_columns: int = 2,
         min_rows: int = 3,
@@ -154,7 +154,7 @@ class TableProcessor:
 
         Args:
             table_settings: Optional pdfplumber table settings override.
-            min_words_in_table: Minimum words required to consider as table. Default: 6.
+            min_words_in_table: Minimum words required to consider as table. Default: 2.
             max_table_width_ratio: Maximum width ratio (table_width/page_width) to avoid
                 detecting full-page content as a table. Default: 0.85 (85% of page).
             min_columns: Minimum number of columns for a valid table. Default: 2.
