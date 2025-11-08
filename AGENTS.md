@@ -17,6 +17,10 @@ Build a **simple, transparent, MIT-licensed** PDF-to-Markdown converter that exc
 4. **MIT licensing** - No AGPL contamination, no commercial restrictions
 5. **Developer-first** - Easy to use, extend, and contribute to
 
+### Git Workflow Rule
+
+**CRITICAL:** AI agents must **NEVER** commit to git. The user handles all git operations (commits, branches, merges, pushes). Only make code changes and report what was changed.
+
 ---
 
 ## Differentiation Strategy

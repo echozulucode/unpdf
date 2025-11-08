@@ -135,13 +135,12 @@ class BlockDetector:
     def _map_block_type_to_category(self, block_type: BlockType) -> BlockCategory:
         """Map BlockType to BlockCategory."""
         mapping = {
-            BlockType.HEADER: BlockCategory.HEADER,
-            BlockType.BODY_TEXT: BlockCategory.PARAGRAPH,
-            BlockType.LIST_ITEM: BlockCategory.LIST,
+            BlockType.HEADING: BlockCategory.HEADER,
+            BlockType.TEXT: BlockCategory.PARAGRAPH,
+            BlockType.LIST: BlockCategory.LIST,
             BlockType.CODE: BlockCategory.CODE,
             BlockType.TABLE: BlockCategory.TABLE,
-            BlockType.CAPTION: BlockCategory.CAPTION,
-            BlockType.FOOTNOTE: BlockCategory.FOOTNOTE,
+            BlockType.IMAGE: BlockCategory.IMAGE,
             BlockType.HORIZONTAL_RULE: BlockCategory.HORIZONTAL_RULE,
             BlockType.BLOCKQUOTE: BlockCategory.BLOCKQUOTE,
         }
@@ -154,30 +153,53 @@ class BlockDetector:
         if not self.header_classifier:
             return blocks
 
+        # Import TextBlock from header_classifier
+        from unpdf.processors.header_classifier import (
+            TextBlock as HeaderTextBlock,
+        )
+        from unpdf.models.layout import BoundingBox
+
         for block in blocks:
             if block.category == BlockCategory.HEADER:
-                # Extract font size from metadata if available
+                # Extract properties from metadata if available
                 font_size = body_font_size * 1.5  # Default assumption
-                if block.metadata and "font_size" in block.metadata:
-                    font_size = block.metadata["font_size"]
+                is_bold = False
+                font_name = ""
+                
+                if block.metadata:
+                    font_size = block.metadata.get("font_size", font_size)
+                    is_bold = block.metadata.get("is_bold", False)
+                    font_name = block.metadata.get("font_name", "")
 
-                # Classify header level
-                level = self.header_classifier.classify_header(
+                # Create a HeaderTextBlock object
+                # Convert bbox if needed
+                if hasattr(block.bbox, 'x0'):
+                    # layout_analyzer BoundingBox format
+                    bbox = BoundingBox(
+                        x=block.bbox.x0,
+                        y=block.bbox.y0,
+                        width=block.bbox.x1 - block.bbox.x0,
+                        height=block.bbox.y1 - block.bbox.y0,
+                    )
+                else:
+                    # Already in correct format
+                    bbox = block.bbox
+
+                header_block = HeaderTextBlock(
                     text=block.text,
+                    bbox=bbox,
+                    font_name=font_name,
                     font_size=font_size,
-                    body_font_size=body_font_size,
-                    is_bold=(
-                        block.metadata.get("is_bold", False)
-                        if block.metadata
-                        else False
-                    ),
-                    position_y=block.bbox.y0 if block.bbox else 0,
-                    page_height=792,  # Standard letter height, should be passed in
+                    is_bold=is_bold,
+                    page_height=792,  # Should be passed in
                 )
 
-                if level:
+                # Classify header level
+                level, confidence = self.header_classifier.classify_header(header_block)
+
+                if level and level.value > 0:  # Not BODY
                     block.header_level = level
-                    block.confidence = min(block.confidence + 0.3, 1.0)
+                    block.confidence = min(block.confidence + confidence * 0.3, 1.0)
 
         return blocks
 
@@ -271,23 +293,44 @@ class BlockDetector:
         if not self.footnote_detector:
             return blocks
 
+        # Import TextBlock from layout_analyzer
+        from unpdf.processors.layout_analyzer import (
+            TextBlock as AnalyzerTextBlock,
+            BoundingBox as AnalyzerBBox,
+        )
+
         # Extract text blocks for footnote detection
         text_blocks = []
         for i, block in enumerate(blocks):
+            # Convert bbox if needed
+            bbox = block.bbox
+            if bbox and not isinstance(bbox, AnalyzerBBox):
+                # Convert from models.layout.BoundingBox to layout_analyzer.BoundingBox
+                if hasattr(bbox, 'x'):
+                    # models.layout BoundingBox format
+                    bbox = AnalyzerBBox(
+                        x0=bbox.x,
+                        y0=bbox.y,
+                        x1=bbox.x + bbox.width,
+                        y1=bbox.y + bbox.height,
+                    )
+                elif hasattr(bbox, 'x0'):
+                    # Already in analyzer format, keep as is
+                    pass
+                    
+            font_size = block.metadata.get("font_size", 12) if block.metadata else 12
+            
             text_blocks.append(
-                {
-                    "index": i,
-                    "text": block.text,
-                    "bbox": block.bbox,
-                    "font_size": (
-                        block.metadata.get("font_size", 12) if block.metadata else 12
-                    ),
-                }
+                AnalyzerTextBlock(
+                    bbox=bbox,
+                    text=block.text,
+                    font_size=font_size,
+                )
             )
 
         # Detect footnotes
         footnotes = self.footnote_detector.detect_footnotes(
-            text_blocks=text_blocks,
+            blocks=text_blocks,
             body_font_size=12,  # Should be passed in
             page_height=792,  # Should be passed in
         )
