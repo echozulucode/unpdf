@@ -59,6 +59,7 @@ Issues = "https://github.com/yourusername/unpdf/issues"
 
 [project.scripts]
 unpdf = "unpdf.cli:main"
+unpdf-test-cases = "run_test_cases:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

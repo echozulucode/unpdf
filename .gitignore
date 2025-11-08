@@ -69,3 +69,4 @@ temp/
 /tests/test_cases/*.txt
 test_results.txt
 test_run_output.txt
+test_cases_output.txt

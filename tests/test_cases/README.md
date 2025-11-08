@@ -1,74 +1,59 @@
 # Test Cases
 
-This directory contains test markdown files for accuracy testing.
+This directory contains test markdown files and PDFs for accuracy testing.
 
 ## Test Case Files
 
-1. **01_basic_text.md** - Simple paragraphs and headings
-2. **02_text_formatting.md** - Bold, italic, inline code, strikethrough
-3. **03_lists.md** - Ordered, unordered, and nested lists
-4. **04_code_blocks.md** - Code blocks with and without syntax highlighting
-5. **05_tables.md** - Simple and aligned tables
-6. **06_links_and_quotes.md** - Links and blockquotes
-7. **07_headings.md** - All heading levels (H1-H6)
-8. **08_horizontal_rules.md** - Horizontal rules
-9. **09_complex_document.md** - Multiple features combined
-10. **10_advanced_tables.md** - Tables with formatting and various sizes
+1. **01_basic_text** - Simple paragraphs and headings
+2. **02_text_formatting** - Bold, italic, inline code, strikethrough
+3. **03_lists** - Ordered, unordered, and nested lists
+4. **04_code_blocks** - Code blocks with and without syntax highlighting
+5. **05_tables** - Simple and aligned tables
+6. **06_links_and_quotes** - Links and blockquotes
+7. **07_headings** - All heading levels (H1-H6)
+8. **08_horizontal_rules** - Horizontal rules
+9. **09_complex_document** - Multiple features combined
+10. **10_advanced_tables** - Tables with formatting and various sizes
 
-## PDF Conversion
+## Running Test Cases
 
-### Instructions for Manual PDF Conversion
+### Automated Test Runner
 
-After creating PDFs from each markdown file, place them in this directory with the same name but `.pdf` extension:
-
-- `01_basic_text.pdf`
-- `02_text_formatting.pdf`
-- `03_lists.pdf`
-- etc.
-
-### Recommended PDF Converters
-
-You can use any of the following tools to convert markdown to PDF:
-
-1. **Obsidian** - Consistent with existing test case
-2. **Pandoc** - `pandoc input.md -o output.pdf`
-3. **VS Code with Markdown PDF extension**
-4. **Typora** - Commercial markdown editor with PDF export
-5. **Marked 2** (macOS) - Markdown previewer with PDF export
-
-### Converting All Files
-
-You can use this PowerShell script to convert all files with Pandoc:
-
-```powershell
-Get-ChildItem *.md -Exclude README.md | ForEach-Object {
-    $pdfName = $_.BaseName + ".pdf"
-    pandoc $_.Name -o $pdfName
-}
-```
-
-## Running Tests
-
-After PDFs are created, run the accuracy tests:
+Run all test cases with debug output:
 
 ```bash
-python -m unpdf --accuracy tests/test_cases/01_basic_text.pdf
-python -m unpdf --accuracy tests/test_cases/02_text_formatting.pdf
-# ... etc
+python run_test_cases.py
 ```
 
-Or run all tests:
+This will:
+- Convert all PDFs in this directory
+- Generate `{test_case}_output.md` files with conversion results
+- Generate `{test_case}_debug.txt` files with detailed debug logs
+- Display a summary of results
+
+**Note:** Output files (`*_output.md` and `*_debug.txt`) are automatically ignored by git.
+
+### Running Individual Tests
 
 ```bash
-python scripts/run_test_suite.py
+python -m unpdf tests/test_cases/01_basic_text.pdf
 ```
 
-## Expected Results
+### Running Pytest Tests
 
-Each test case targets specific markdown features. The accuracy detector will report:
+```bash
+pytest tests/test_regression.py -v
+```
 
-- Overall accuracy percentage
-- Element-level accuracy for each feature
-- Specific issues or differences found
+## Generated Files
 
-Track results in a spreadsheet or test report to identify patterns and areas for improvement.
+Each test run generates two files per test case:
+
+- `{test_case}_output.md` - The converted markdown output
+- `{test_case}_debug.txt` - Debug log with detailed processing information
+
+These files are automatically regenerated on each run and are ignored by git.
+
+## PDF Source Files
+
+The PDF files in this directory were generated from the corresponding `.md` files using various converters to ensure consistent testing across different PDF generation methods.
